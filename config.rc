@@ -1,0 +1,114 @@
+# configuration
+
+
+(* some
+  (* nested
+    (* comments *)
+  shown *)
+here
+*)
+
+
+# define the commands that will be used
+#   the definition is simpley a list of strings starting with the program
+#   two special items, window-id and tab-name take a format string argument
+#     e.g    window-id("--embed=0x%08x")
+#     or     "-embed" window-id("%d")
+
+command xterm {
+    "xterm"
+    "-into" window-id("%d")
+    "-class" tab-name("%s")
+}
+
+command emacs {
+    "emacs"
+    "--parent-id" window-id("%d")
+}
+
+command urxvt {
+    "urxvt"
+    "-embed" window-id("%d")
+    "-pe" "default,-tabbed"
+}
+
+command gvim {
+    "gvim"
+    "-g"
+    "--socketid" window-id("%d")
+}
+
+
+# specify the command and otions that will run in one of the tabs
+
+pane p1 "Project 1" {
+    run urxvt
+    start auto     (* does not apply to button *)
+    #cwd "/tmp"
+    send-line "export PROJECT=p1"
+}
+
+pane p2 "Project 2" {
+    run urxvt
+    start manual   # does not apply to button
+    send-line "export PROJECT=p2"
+}
+
+pane wk "Work" {
+    run urxvt
+    start manual
+    send-line "export CONF=test1"
+    send-line "work-setup"
+}
+
+pane tmp-sh "shell" {
+    run urxvt
+    start auto
+    cwd "/tmp"
+}
+
+pane emacs "EMACS" {
+    run emacs
+    start auto
+    #cwd home
+}
+
+pane xterm "xterm-etc" {
+    run xterm
+    start auto
+    cwd "/etc"
+}
+
+pane gvim "Vi IMprove" {
+    run gvim
+    start auto
+    #cwd home
+}
+
+
+# each program instance run one session
+# specified by the "-session <session-name>" command option
+# if this argument was missing the default session is loaded
+
+# the default session
+session default left {
+    #tab emacs
+    tab * 3 p1
+    tab * 2 p2
+    button p1
+    button p2
+}
+
+# a named session
+session "work1" right {
+    tab * 4 wk
+    tab gvim
+    button tmp-sh
+}
+
+# a named session
+session "work2" top {
+    tab * 2 wk
+    tab p1
+    button tmp-sh
+}
