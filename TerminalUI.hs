@@ -11,6 +11,7 @@ import qualified Text.Read as TR
 
 import qualified ConfigurationParser as CP
 import qualified ProcessRunner as PR
+import qualified SendControl as SC
 
 
 orientation :: CP.Orientation -> GTK.PositionType
@@ -82,11 +83,30 @@ addPane notebook title dir commandList = do
   let run = CP.expandCommand commandList windowID title
 
   GTK.on socket GTK.socketPlugRemoved $ unplug socket page dir run
+  GTK.on socket GTK.socketPlugAdded $ plug socket
 
   putStrLn $ "RUN: " ++ (show run)
   PR.run dir run
 
   return page
+
+
+-- detect the program creating its main window
+-- delay inorder to give it tiome to set itself up
+-- send too quickly and the event queue locks up
+plug :: GTK.Socket -> IO ()
+plug socket = do
+  putStrLn $ "plug "
+  h <- GTK.timeoutAdd (delayedSend socket >> return False) 1000
+  return ()
+
+
+-- dummy routine to send a couple of test lines
+delayedSend socket = do
+  putStrLn "plug--delay"
+
+  SC.sendLine socket "ls"
+  SC.sendLine socket "echo the quick brown fox jumps over the lazy dog"
 
 
 -- dialog to decide whether to restart the command

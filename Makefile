@@ -2,9 +2,9 @@
 
 
 .PHONY: all
-all: conlecterm
+all: conlecterm run
 
-conlecterm: Main.hs ConfigurationParser.hs TerminalUI.hs ProcessRunner.hs
+conlecterm: $(wildcard *.hs)
 	ghc -o "$@" --make Main.hs
 
 .PHONY: run
