@@ -46,6 +46,7 @@ pane p1 "Project 1" {
     start auto     (* does not apply to button *)
     #cwd "/tmp"
     send-line "export PROJECT=p1"
+    send-line "echo 'Hello World!'\"   [aa]{BB}\""
 }
 
 pane p2 "Project 2" {
