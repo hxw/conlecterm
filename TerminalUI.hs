@@ -42,7 +42,7 @@ run (orient, tabList, buttonList) = do
   -- create all the initial table
   mapM_ (\tab ->  do
             let (title, start, dir, command, sendList) = tab
-            addPane notebook title start dir command) tabList
+            addPane notebook title start dir command sendList) tabList
 
   -- create buttons
   -- ***TODO*** ?? where to put?  on a special tab?
@@ -73,8 +73,9 @@ exitNotice = do
   putStrLn $ "exit " ++ (show response)
 
 
-addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> IO Int
-addPane notebook title autoStart dir commandList = do
+addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO Int
+addPane notebook title autoStart dir commandList sendList = do
+  putStrLn $ "send: " ++ (show sendList)
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
 
@@ -99,7 +100,7 @@ addPane notebook title autoStart dir commandList = do
 
 
   GTK.on socket GTK.socketPlugRemoved $ unplug sb socket
-  GTK.on socket GTK.socketPlugAdded $ plug socket
+  GTK.on socket GTK.socketPlugAdded $ plug socket sendList
 
   if autoStart
     then runC socket title dir commandList
@@ -129,22 +130,23 @@ press button socket title dir commandList = do
   runC socket title dir commandList
   GTK.widgetGrabFocus socket
 
+
 -- detect the program creating its main window
 -- delay in order to give it time to set itself up
 -- send too quickly and the event queue locks up
-plug :: GTK.Socket -> IO ()
-plug socket = do
+plug :: GTK.Socket -> [String] -> IO ()
+plug socket sendList = do
   putStrLn $ "plug "
-  h <- GTK.timeoutAdd (delayedSend socket >> return False) 1000
+  h <- GTK.timeoutAdd (delayedSend socket sendList) 1000
   return ()
 
 
 -- dummy routine to send a couple of test lines
-delayedSend socket = do
+delayedSend :: GTK.Socket -> [String] -> IO Bool
+delayedSend socket sendList = do
   putStrLn "plug--delay"
-
-  SC.sendLine socket "ls"
-  SC.sendLine socket "echo the quick brown fox jumps over the lazy dog"
+  mapM_ (SC.sendLine socket) sendList
+  return False
 
 
 -- dialog to decide whether to restart the command
