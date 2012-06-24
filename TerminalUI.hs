@@ -3,6 +3,7 @@
 
 module TerminalUI where
 
+import Data.Maybe( fromJust )
 import Control.Monad.Trans( liftIO )
 
 import qualified Graphics.UI.Gtk as GTK
@@ -57,8 +58,11 @@ run (orient, tabList, buttonList) = do
 -- do not allow exit if still some tabs are open
 checkExit :: GTK.Notebook -> IO Bool
 checkExit notebook = do
+  {-
   page <- GTK.notebookGetCurrentPage notebook
   let continue = page /= -1
+-}
+  let continue = False
   if continue then exitNotice else GTK.mainQuit
   return $ continue
 
@@ -71,28 +75,64 @@ exitNotice = do
 
 addPane :: GTK.Notebook ->  String -> Maybe String -> CP.CommandList -> IO Int
 addPane notebook title dir commandList = do
+  vbox <- GTK.vBoxNew False 0
+  GTK.widgetSetCanFocus vbox False
 
+  GTK.widgetShowAll vbox
+
+  let auto = True
+
+  -- create a socket and put it in the Vbox
   socket <- GTK.socketNew
-  GTK.widgetShowAll socket
   GTK.widgetSetCanFocus socket True
+  GTK.containerAdd vbox socket
 
-  page <- GTK.notebookAppendPage notebook socket title
+  -- start
+  sb <- GTK.buttonNewWithLabel "Start"
+  GTK.on sb GTK.buttonActivated $ press sb socket title dir commandList
+  GTK.containerAdd vbox sb
 
-  paneid <- GTK.socketGetId socket
-  let windowID = GTK.fromNativeWindowId paneid :: Integer
-  let run = CP.expandCommand commandList windowID title
+  if auto
+    then return ()
+    else GTK.widgetShowAll sb
 
-  GTK.on socket GTK.socketPlugRemoved $ unplug socket page dir run
+
+  page <- GTK.notebookAppendPage notebook vbox title
+
+
+  GTK.on socket GTK.socketPlugRemoved $ unplug sb socket
   GTK.on socket GTK.socketPlugAdded $ plug socket
 
-  putStrLn $ "RUN: " ++ (show run)
-  PR.run dir run
+  if auto
+    then runC socket title dir commandList
+    else return ()
 
   return page
 
 
+-- run a command
+runC :: GTK.Socket -> String -> Maybe String -> CP.CommandList -> IO ()
+runC socket title dir commandList = do
+  GTK.widgetShowAll socket
+
+  -- expand the command string
+  paneid <- GTK.socketGetId socket
+  let windowID = GTK.fromNativeWindowId paneid :: Integer
+  let cmd = CP.expandCommand commandList windowID title
+  putStrLn $ "RUN: " ++ (show cmd)
+  PR.run dir cmd
+
+
+-- button pressed
+press :: GTK.Button -> GTK.Socket -> String -> Maybe String -> CP.CommandList -> IO ()
+press button socket title dir commandList = do
+  GTK.widgetHide button
+  putStrLn $ "press "
+  runC socket title dir commandList
+  GTK.widgetGrabFocus socket
+
 -- detect the program creating its main window
--- delay inorder to give it tiome to set itself up
+-- delay in order to give it time to set itself up
 -- send too quickly and the event queue locks up
 plug :: GTK.Socket -> IO ()
 plug socket = do
@@ -110,32 +150,25 @@ delayedSend socket = do
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Socket -> Int -> Maybe String -> [String] -> IO Bool
-unplug socket page dir run = do
+unplug :: GTK.Button -> GTK.Socket -> IO Bool
+unplug button socket = do
   putStrLn $ "unplug "
-  dialog <- GTK.dialogNew
+  GTK.widgetHide socket
+  GTK.buttonSetLabel button "Restart"
+  GTK.widgetShowAll button
 
-  GTK.dialogAddButton dialog "Restart" GTK.ResponseOk
-  GTK.dialogAddButton dialog "Close" GTK.ResponseClose
-  GTK.dialogSetDefaultResponse dialog GTK.ResponseOk
-  response <- GTK.dialogRun dialog
-  GTK.widgetDestroy dialog
-  putStrLn $ "unplug " ++ (show response)
-  case response of
-     GTK.ResponseOk -> do
-       PR.run dir run
-       return True
-     _ ->
-       return False
+  return True
 
 
 -- change the main title to be the tab name
 pageChange :: GTK.Window -> GTK.Notebook -> Int -> IO ()
 pageChange window notebook page = do
-  child <- GTK.notebookGetNthPage notebook page
-  title <- case child of
-    Nothing -> return "Terminal"
-    Just child -> do
+  vBox <- GTK.notebookGetNthPage notebook page
+  children <- GTK.containerGetChildren $ GTK.castToVBox $ fromJust vBox
+
+  title <- case children of
+    [] -> return "Terminal"
+    (child:_) -> do
       GTK.widgetSetCanFocus child True
       GTK.widgetGrabFocus child
       text <- GTK.notebookGetTabLabelText notebook child

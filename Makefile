@@ -6,6 +6,7 @@ all: conlecterm run
 
 conlecterm: $(wildcard *.hs)
 	ghc -o "$@" --make Main.hs
+#	ghc -o "$@" -threaded --make Main.hs
 
 .PHONY: run
 run: conlecterm

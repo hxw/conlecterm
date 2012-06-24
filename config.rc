@@ -94,6 +94,7 @@ pane gvim "Vi IMprove" {
 session default left {
     #tab emacs
     tab p1
+    tab p2
 #    tab * 3 p1
 #    tab * 2 p2
     button p1
