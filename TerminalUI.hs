@@ -42,7 +42,7 @@ run (orient, tabList, buttonList) = do
   -- create all the initial table
   mapM_ (\tab ->  do
             let (title, start, dir, command, sendList) = tab
-            addPane notebook title dir command) tabList
+            addPane notebook title start dir command) tabList
 
   -- create buttons
   -- ***TODO*** ?? where to put?  on a special tab?
@@ -73,14 +73,12 @@ exitNotice = do
   putStrLn $ "exit " ++ (show response)
 
 
-addPane :: GTK.Notebook ->  String -> Maybe String -> CP.CommandList -> IO Int
-addPane notebook title dir commandList = do
+addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> IO Int
+addPane notebook title autoStart dir commandList = do
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
 
   GTK.widgetShowAll vbox
-
-  let auto = True
 
   -- create a socket and put it in the Vbox
   socket <- GTK.socketNew
@@ -92,7 +90,7 @@ addPane notebook title dir commandList = do
   GTK.on sb GTK.buttonActivated $ press sb socket title dir commandList
   GTK.containerAdd vbox sb
 
-  if auto
+  if autoStart
     then return ()
     else GTK.widgetShowAll sb
 
@@ -103,7 +101,7 @@ addPane notebook title dir commandList = do
   GTK.on socket GTK.socketPlugRemoved $ unplug sb socket
   GTK.on socket GTK.socketPlugAdded $ plug socket
 
-  if auto
+  if autoStart
     then runC socket title dir commandList
     else return ()
 
