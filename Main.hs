@@ -47,10 +47,16 @@ main = do
   if length arguments > 1
     then usage ["too many arguments\n"]
     else return ()
-  hPutStrLn stderr $ "default session = " ++ (show session) ++ "   config = " ++ config
 
   let startSession = if length arguments == 0 then defaultSession else (arguments !! 0)
-  putStrLn $ "r = " ++ (show startSession)
+
+  if verbose
+    then do
+      hPutStrLn stderr $ "default session = " ++ (show session)
+      hPutStrLn stderr $ "config file     = " ++ config
+      hPutStrLn stderr $ "start session   = " ++ (show startSession)
+    else return ()
+
   mh <- CP.compile config
   case mh of
     Nothing ->
@@ -58,9 +64,8 @@ main = do
     Just h -> do
       session <- CP.expandSession h startSession
       case session of
-        Nothing -> do
-          putStrLn $ "unknown session: " ++ (show startSession)
-          exitFailure
+        Nothing ->
+          usage $ ["unknown session: ", show startSession]
         Just s ->
           TU.run s
   exitSuccess
@@ -80,8 +85,6 @@ configPath p = do
     justDoesNotExistError e
         | isDoesNotExistError e = Just [pathSeparator]
         | otherwise             = Nothing
-
-
 
 
 -- option processing

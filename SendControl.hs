@@ -60,7 +60,6 @@ withNative socket run =
   where
     setup :: IO NativeAccess
     setup = do
-      putStrLn $ "setup"
       plugWindow <-  GTK.socketGetPlugWindow socket
       window <- GTK.drawableGetID plugWindow
       let nativeWindow = GTK.fromNativeWindowId window
@@ -69,7 +68,6 @@ withNative socket run =
       return (display, root, nativeWindow)
     final :: NativeAccess -> IO ()
     final (display, _root, _window) = do
-      putStrLn $ "final"
       X.closeDisplay display
 
 
@@ -100,6 +98,10 @@ sendKey (display, root, window) shift keysym = do
 
 
 -- convert ASCII character to the correct key
+-- unfortunately since key codes are sent the
+-- corresponding shift is also needed
+-- e.g. the key codes for 2 and @ are the same
+-- this code probably is tied to the US-international layout
 sym :: Char -> (X.KeyMask, X.KeySym)
 sym ' ' = (noModMask, X.stringToKeysym "space")
 sym '!' = (X.shiftMask, X.stringToKeysym "exclam")

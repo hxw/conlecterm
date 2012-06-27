@@ -5,6 +5,7 @@ module TerminalUI where
 
 import Data.Maybe( fromJust )
 import Control.Monad.Trans( liftIO )
+import System.Process( ProcessHandle )
 
 import qualified Graphics.UI.Gtk as GTK
 
@@ -13,7 +14,6 @@ import qualified Text.Read as TR
 import qualified ConfigurationParser as CP
 import qualified ProcessRunner as PR
 import qualified SendControl as SC
-
 
 orientation :: CP.Orientation -> GTK.PositionType
 orientation CP.LeftTabs   = GTK.PosLeft
@@ -49,33 +49,29 @@ run (orient, tabList, buttonList) = do
   -- ????
 
   -- link up the close button
-  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit notebook
+  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit
 
   -- start the GTK event loop
   GTK.mainGUI
 
 
 -- do not allow exit if still some tabs are open
-checkExit :: GTK.Notebook -> IO Bool
-checkExit notebook = do
-  {-
-  page <- GTK.notebookGetCurrentPage notebook
-  let continue = page /= -1
--}
-  let continue = False
+checkExit :: IO Bool
+checkExit = do
+  active <- PR.activeProcs
+  let continue = active > 0
   if continue then exitNotice else GTK.mainQuit
   return $ continue
+
 
 exitNotice = do
   dialog <- GTK.messageDialogNew Nothing [GTK.DialogDestroyWithParent] GTK.MessageWarning GTK.ButtonsOk "Some tabs are still active"
   response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
-  putStrLn $ "exit " ++ (show response)
 
 
 addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO Int
 addPane notebook title autoStart dir commandList sendList = do
-  putStrLn $ "send: " ++ (show sendList)
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
 
@@ -86,9 +82,12 @@ addPane notebook title autoStart dir commandList sendList = do
   GTK.widgetSetCanFocus socket True
   GTK.containerAdd vbox socket
 
+  -- to hiold the process that wil be started later
+  refproc <- PR.newProcRef
+
   -- start
   sb <- GTK.buttonNewWithLabel "Start"
-  GTK.on sb GTK.buttonActivated $ press sb socket title dir commandList
+  GTK.on sb GTK.buttonActivated $ press sb socket title refproc dir commandList
   GTK.containerAdd vbox sb
 
   if autoStart
@@ -98,36 +97,34 @@ addPane notebook title autoStart dir commandList sendList = do
 
   page <- GTK.notebookAppendPage notebook vbox title
 
-
-  GTK.on socket GTK.socketPlugRemoved $ unplug sb socket
+  GTK.on socket GTK.socketPlugRemoved $ unplug sb socket refproc
   GTK.on socket GTK.socketPlugAdded $ plug socket sendList
 
   if autoStart
-    then runC socket title dir commandList
+    then do
+      runC refproc socket title dir commandList
     else return ()
 
   return page
 
 
 -- run a command
-runC :: GTK.Socket -> String -> Maybe String -> CP.CommandList -> IO ()
-runC socket title dir commandList = do
+runC :: PR.ProcRef -> GTK.Socket -> String -> Maybe String -> CP.CommandList -> IO ()
+runC refproc socket title dir commandList = do
   GTK.widgetShowAll socket
 
   -- expand the command string
   paneid <- GTK.socketGetId socket
   let windowID = GTK.fromNativeWindowId paneid :: Integer
   let cmd = CP.expandCommand commandList windowID title
-  putStrLn $ "RUN: " ++ (show cmd)
-  PR.run dir cmd
+  PR.run refproc dir cmd
 
 
 -- button pressed
-press :: GTK.Button -> GTK.Socket -> String -> Maybe String -> CP.CommandList -> IO ()
-press button socket title dir commandList = do
+press :: GTK.Button -> GTK.Socket -> String -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
+press button socket title refproc dir commandList = do
   GTK.widgetHide button
-  putStrLn $ "press "
-  runC socket title dir commandList
+  runC refproc socket title dir commandList
   GTK.widgetGrabFocus socket
 
 
@@ -136,7 +133,6 @@ press button socket title dir commandList = do
 -- send too quickly and the event queue locks up
 plug :: GTK.Socket -> [String] -> IO ()
 plug socket sendList = do
-  putStrLn $ "plug "
   h <- GTK.timeoutAdd (delayedSend socket sendList) 1000
   return ()
 
@@ -144,17 +140,18 @@ plug socket sendList = do
 -- dummy routine to send a couple of test lines
 delayedSend :: GTK.Socket -> [String] -> IO Bool
 delayedSend socket sendList = do
-  putStrLn "plug--delay"
   mapM_ (SC.sendLine socket) sendList
   return False
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Button -> GTK.Socket -> IO Bool
-unplug button socket = do
-  putStrLn $ "unplug "
+unplug :: GTK.Button -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug button socket refproc = do
   GTK.widgetHide socket
   GTK.buttonSetLabel button "Restart"
+
+  PR.shutdown refproc
+
   GTK.widgetShowAll button
 
   return True
@@ -175,5 +172,4 @@ pageChange window notebook page = do
       case text of
         Nothing -> return "Terminal"
         Just title -> return title
-  putStrLn $ "page: " ++  (show page) ++ " title: " ++ title
   GTK.set window [GTK.windowTitle GTK.:= title]
