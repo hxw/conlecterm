@@ -4,6 +4,7 @@
 module TerminalUI where
 
 import Data.Maybe( fromJust )
+import Data.Foldable( foldlM )
 import Control.Monad.Trans( liftIO )
 import System.Process( ProcessHandle )
 
@@ -39,14 +40,24 @@ run (orient, tabList, buttonList) = do
   GTK.on notebook GTK.switchPage $ pageChange toplevel notebook
   GTK.widgetSetCanFocus notebook False
 
+  -- create the buttons page
+  table <- GTK.tableNew 4 4 True
+  GTK.widgetShowAll table
+  page <- GTK.notebookAppendPage notebook table "+NEW"
+
+
   -- create all the initial table
   mapM_ (\tab ->  do
             let (title, start, dir, command, sendList) = tab
             addPane notebook title start dir command sendList) tabList
 
   -- create buttons
-  -- ***TODO*** ?? where to put?  on a special tab?
-  -- ????
+  foldlM (\(x, y) button ->  do
+            let (title, start, dir, command, sendList) = button
+            addButton table x y notebook title start dir command sendList
+            let x1 = x + 1
+            if x > 4 then return (0, y + 1) else return (x1, y)
+         ) (0, 0) buttonList
 
   -- link up the close button
   GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit
@@ -70,6 +81,18 @@ exitNotice = do
   GTK.widgetDestroy dialog
 
 
+-- add buttons to the button menu
+addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO ()
+addButton table x y notebook title autoStart dir commandList sendList = do
+  button <- GTK.buttonNewWithLabel title
+  GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList >> return ())
+
+  GTK.widgetShowAll button
+  GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
+  return ()
+
+
+-- add auto/manual stared panes
 addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO Int
 addPane notebook title autoStart dir commandList sendList = do
   vbox <- GTK.vBoxNew False 0
@@ -160,6 +183,9 @@ unplug button socket refproc = do
 -- change the main title to be the tab name
 pageChange :: GTK.Window -> GTK.Notebook -> Int -> IO ()
 pageChange window notebook page = do
+  if page == 0 then return () else xpageChange window notebook page
+
+xpageChange window notebook page = do
   vBox <- GTK.notebookGetNthPage notebook page
   children <- GTK.containerGetChildren $ GTK.castToVBox $ fromJust vBox
 

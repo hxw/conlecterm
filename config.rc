@@ -44,6 +44,7 @@ command gvim {
 pane p1 "Project 1" {
     run urxvt
     start auto     (* does not apply to button *)
+#     start manual
     #cwd "/tmp"
     send-line "export PROJECT=p1"
     send-line "echo 'Hello World!'\"   [aa]{BB}\""
