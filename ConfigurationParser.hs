@@ -10,6 +10,8 @@ import qualified Text.ParserCombinators.Parsec.Token as P
 import qualified Text.Parsec.Prim as N
 import Text.ParserCombinators.Parsec.Language
 
+import qualified Graphics.UI.Gtk as GTK
+
 import System.IO
 import qualified Data.HashTable as HT
 import Control.Monad.Trans (liftIO, lift)
@@ -27,12 +29,17 @@ data CommandItem = Argument String
 type CommandList = [CommandItem]
 
 type SendList  = [String]
+
+type Colour = GTK.Color
+
 data PaneRecord =
-  PaneRecord { paneTitle :: String
-             , paneAuto  :: Bool
-             , paneDir   :: Maybe String
-             , paneRun   :: String
-             , paneSend  :: SendList
+  PaneRecord { paneTitle   :: String
+             , paneAuto    :: Bool
+             , paneDir     :: Maybe String
+             , paneRun     :: String
+             , paneSend    :: SendList
+             , paneRunning :: Maybe Colour
+             , paneStopped :: Maybe Colour
              } deriving Show
 
 data Orientation = LeftTabs | RightTabs | TopTabs | BottomTabs
@@ -57,12 +64,14 @@ data UserState =
             , usSessions :: SessionHash
             , usErrorCount   :: Integer
             , usWarningCount :: Integer
-            , usCurrentPaneStart :: Maybe Bool
-            , usCurrentPaneRun   :: Maybe String
-            , usCurrentPaneDir   :: Maybe String
-            , usCurrentPaneSend  :: SendList
-            , usCurrentSessionButtons     :: [String]
-            , usCurrentSessionTabs        :: [String]
+            , usCurrentPaneStart   :: Maybe Bool
+            , usCurrentPaneRun     :: Maybe String
+            , usCurrentPaneDir     :: Maybe String
+            , usCurrentPaneSend    :: SendList
+            , usCurrentPaneRunning :: Maybe Colour
+            , usCurrentPaneStopped :: Maybe Colour
+            , usCurrentSessionButtons :: [String]
+            , usCurrentSessionTabs    :: [String]
             }
 
 initUserState cmdHT paneHT sessionHT =
@@ -71,12 +80,14 @@ initUserState cmdHT paneHT sessionHT =
             , usSessions = sessionHT
             , usErrorCount   = 0
             , usWarningCount = 0
-            , usCurrentPaneStart = Nothing
-            , usCurrentPaneRun   = Nothing
-            , usCurrentPaneDir   = Nothing
-            , usCurrentPaneSend  = []
-            , usCurrentSessionButtons     = []
-            , usCurrentSessionTabs        = []
+            , usCurrentPaneStart   = Nothing
+            , usCurrentPaneRun     = Nothing
+            , usCurrentPaneDir     = Nothing
+            , usCurrentPaneSend    = []
+            , usCurrentPaneRunning = Nothing
+            , usCurrentPaneStopped = Nothing
+            , usCurrentSessionButtons = []
+            , usCurrentSessionTabs    = []
             }
 
 
@@ -99,6 +110,8 @@ lexer  = P.makeTokenParser
          , reservedNames  = [ "auto"
                             , "bottom"
                             , "button"
+                            , "color"
+                            , "colour"
                             , "command"
                             , "cwd"
                             , "default"
@@ -107,7 +120,9 @@ lexer  = P.makeTokenParser
                             , "pane"
                             , "right"
                             , "run"
+                            , "running"
                             , "start"
+                            , "stopped"
                             , "send-line"
                             , "tab"
                             , "tab-name"
@@ -126,8 +141,10 @@ lexeme        = P.lexeme lexer
 symbol        = P.symbol lexer
 stringLiteral = P.stringLiteral lexer
 natural       = P.natural lexer
+hexadecimal   = P.hexadecimal lexer
 parens        = P.parens lexer
 braces        = P.braces lexer
+comma         = P.comma lexer
 semi          = P.semi lexer
 identifier    = P.identifier lexer
 reserved      = P.reserved lexer
@@ -265,6 +282,8 @@ paneSetup name = do
                , usCurrentPaneDir   = Nothing
                , usCurrentPaneRun   = Nothing
                , usCurrentPaneSend  = []
+               , usCurrentPaneRunning = Nothing
+               , usCurrentPaneStopped = Nothing
                }
   setState sNew
 
@@ -284,13 +303,17 @@ paneCompile pos name title = do
                     , usCurrentPaneDir   = dir
                     , usCurrentPaneRun   = run
                     , usCurrentPaneSend  = send
-                      } = s
+                    , usCurrentPaneRunning = running
+                    , usCurrentPaneStopped = stopped
+                    } = s
 
       let pane = PaneRecord { paneTitle = title
                             , paneAuto  = fromMaybe True start
                             , paneRun   = fromJust run
                             , paneDir   = dir
                             , paneSend  = send
+                            , paneRunning = running
+                            , paneStopped = stopped
                             }
 
       lift $ HT.insert hPane name pane
@@ -385,29 +408,88 @@ sendCompile pos str = do
   setState sNew
 
 
+runningSetup :: MyParser SourcePos
+runningSetup = do
+  s <- getState
+  blockStartPos <- getPosition
+  let UserState { usCurrentPaneRunning = n } = s
+  if isNothing n then return ()
+    else warning "duplicate running option"
+  return blockStartPos
+
+
+runningCompile :: SourcePos -> Colour -> MyParser ()
+runningCompile pos colour = do
+  s <- getState
+  let sNew = s { usCurrentPaneRunning = Just colour }
+  setState sNew
+
+
+stoppedSetup :: MyParser SourcePos
+stoppedSetup = do
+  blockStartPos <- getPosition
+  s <- getState
+  let UserState { usCurrentPaneStopped = n } = s
+  if isNothing n then return ()
+    else warning "duplicate stopped option"
+  return blockStartPos
+
+
+stoppedCompile :: SourcePos -> Colour -> MyParser ()
+stoppedCompile pos colour = do
+  s <- getState
+  let sNew = s { usCurrentPaneStopped = Just colour }
+  setState sNew
+
+
+
 paneItem :: MyParser ()
 paneItem =
-    do{ reserved "run"
-      ; state <- runSetup
-      ; r <- identifier
-      ; runCompile state r
-      }
-  <|> do{ reserved "cwd"
-      ; state <- cwdSetup
-      ; r <- stringLiteral
-      ; cwdCompile state r
-      }
-  <|>  do{ reserved "start"
-      ; state <- startSetup
-      ; f <- ((reserved "auto" >> return True) <|> (reserved "manual" >> return False))
-      ; startCompile state f
-      }
-  <|> do{ reserved "send-line"
-      ; state <- sendSetup
-      ; s <- stringLiteral
-      ; sendCompile state s
-      }
+  do
+    reserved "run"
+    state <- runSetup
+    r <- identifier
+    runCompile state r
+  <|> do
+    reserved "cwd"
+    state <- cwdSetup
+    r <- stringLiteral
+    cwdCompile state r
+  <|> do
+    reserved "start"
+    state <- startSetup
+    f <- ((reserved "auto" >> return True) <|> (reserved "manual" >> return False))
+    startCompile state f
+  <|> do
+    reserved "send-line"
+    state <- sendSetup
+    s <- stringLiteral
+    sendCompile state s
+  <|> do
+    reserved "running"
+    state <- runningSetup
+    c <- colourItem
+    runningCompile state c
+  <|> do
+    reserved "stopped"
+    state <- stoppedSetup
+    c <- colourItem
+    stoppedCompile state c
   <?> "pane item"
+
+
+colourItem :: MyParser Colour
+colourItem = do
+  (reserved "colour" <|> reserved "color")
+  parens triplet
+  where
+    triplet = do
+      red <- natural
+      comma
+      green <- natural
+      comma
+      blue <- natural
+      return $ GTK.Color (fromIntegral red) (fromIntegral green) (fromIntegral blue)
 
 
 -- session blocks
@@ -624,7 +706,7 @@ compile configFileName = do
 
 -- simple tuple type for returning the expandex session
 
-type TabInfo = (String, Bool, Maybe String, CommandList, SendList)
+type TabInfo = (String, Bool, Maybe String, CommandList, SendList, Maybe Colour, Maybe Colour)
 
 type TabInfoList = [TabInfo]
 type ButtonInfoList = [TabInfo]
@@ -656,9 +738,11 @@ expandSession (hashCmd, hashPane, hashSession) name = do
                            , paneDir   = dir
                            , paneRun   = run
                            , paneSend  = send
+                           , paneRunning = running
+                           , paneStopped = stopped
                            } = fromJust p
             command <- HT.lookup hashCmd run
-            return $ (title, start, dir, fromJust command, send)
+            return $ (title, start, dir, fromJust command, send, running, stopped)
 
 -- take a command list and convert to a list of strings
 -- expanding the integer value provided

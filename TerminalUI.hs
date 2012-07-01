@@ -48,13 +48,13 @@ run (orient, tabList, buttonList) = do
 
   -- create all the initial table
   mapM_ (\tab ->  do
-            let (title, start, dir, command, sendList) = tab
-            addPane notebook title start dir command sendList) tabList
+            let (title, start, dir, command, sendList, running, stopped) = tab
+            addPane notebook title start dir command sendList running stopped) tabList
 
   -- create buttons
   foldlM (\(x, y) button ->  do
-            let (title, start, dir, command, sendList) = button
-            addButton table x y notebook title start dir command sendList
+            let (title, start, dir, command, sendList, running, stopped) = button
+            addButton table x y notebook title start dir command sendList running stopped
             let x1 = x + 1
             if x > 4 then return (0, y + 1) else return (x1, y)
          ) (0, 0) buttonList
@@ -80,19 +80,18 @@ exitNotice = do
   response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
 
-active :: GTK.Color
-active = GTK.Color 65535 50000 50000
-inactive :: GTK.Color
-inactive = GTK.Color 32767 32767 65535
-
 
 -- add buttons to the button menu
-addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO ()
-addButton table x y notebook title autoStart dir commandList sendList = do
+addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
+addButton table x y notebook title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
-  GTK.widgetModifyFg label GTK.StateNormal active
-  GTK.widgetModifyFg label GTK.StatePrelight active
-  GTK.widgetModifyFg label GTK.StateActive active
+
+  case running of
+    Nothing -> return ()
+    Just colour -> do
+      GTK.widgetModifyFg label GTK.StateNormal colour
+      GTK.widgetModifyFg label GTK.StatePrelight colour
+      GTK.widgetModifyFg label GTK.StateActive colour
   button <- GTK.buttonNew
   --GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 32767 32757 32767)
   --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 16383)
@@ -100,7 +99,7 @@ addButton table x y notebook title autoStart dir commandList sendList = do
 
   GTK.containerAdd button label
 
-  GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList >> return ())
+  GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
 
   GTK.widgetShowAll button
   GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
@@ -108,8 +107,8 @@ addButton table x y notebook title autoStart dir commandList sendList = do
 
 
 -- add auto/manual stared panes
-addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO Int
-addPane notebook title autoStart dir commandList sendList = do
+addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
+addPane notebook title autoStart dir commandList sendList running stopped = do
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
 
@@ -134,10 +133,10 @@ addPane notebook title autoStart dir commandList sendList = do
 
   page <- GTK.notebookAppendPage notebook vbox title
   tabLabel <- GTK.notebookGetTabLabel notebook vbox
-  setTabTextColour tabLabel inactive
+  setTabTextColour tabLabel stopped
 
-  GTK.on socket GTK.socketPlugRemoved $ unplug sb tabLabel socket refproc
-  GTK.on socket GTK.socketPlugAdded $ plug tabLabel socket sendList
+  GTK.on socket GTK.socketPlugRemoved $ unplug sb tabLabel stopped socket refproc
+  GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
 
   if autoStart
     then do
@@ -170,23 +169,23 @@ press button socket title refproc dir commandList = do
 -- detect the program creating its main window
 -- delay in order to give it time to set itself up
 -- send too quickly and the event queue locks up
-plug :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO ()
-plug tabLabel socket sendList = do
-  h <- GTK.timeoutAdd (delayedSend tabLabel socket sendList) 1000
+plug :: Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket -> [String] -> IO ()
+plug tabLabel colour socket sendList = do
+  h <- GTK.timeoutAdd (delayedSend tabLabel colour socket sendList) 1000
   return ()
 
 
 -- dummy routine to send a couple of test lines
-delayedSend :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO Bool
-delayedSend tabLabel socket sendList = do
+delayedSend :: Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket -> [String] -> IO Bool
+delayedSend tabLabel colour socket sendList = do
   mapM_ (SC.sendLine socket) sendList
-  setTabTextColour tabLabel active
+  setTabTextColour tabLabel colour
   return False
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Button -> Maybe GTK.Widget -> GTK.Socket ->  PR.ProcRef -> IO Bool
-unplug button tabLabel socket refproc = do
+unplug :: GTK.Button -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug button tabLabel colour socket refproc = do
   GTK.widgetHide socket
   GTK.buttonSetLabel button "Restart"
 
@@ -194,17 +193,17 @@ unplug button tabLabel socket refproc = do
 
   GTK.widgetShowAll button
 
-  setTabTextColour tabLabel inactive
+  setTabTextColour tabLabel colour
 
   return True
 
 
 -- set the text colour of a tab label
-setTabTextColour :: Maybe GTK.Widget -> GTK.Color -> IO ()
-setTabTextColour Nothing _colour = return ()
-setTabTextColour (Just tabLabel) colour = do
+setTabTextColour :: Maybe GTK.Widget -> Maybe GTK.Color -> IO ()
+setTabTextColour (Just tabLabel) (Just colour) = do
   GTK.widgetModifyFg tabLabel GTK.StateNormal colour
   GTK.widgetModifyFg tabLabel GTK.StateActive colour
+setTabTextColour _ _ = return ()
 
 
 -- change the main title to be the tab name

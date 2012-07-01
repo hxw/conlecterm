@@ -44,6 +44,8 @@ command gvim {
 pane p1 "Project 1" {
     run urxvt
     start manual
+    running colour(0x1fff,0xffff,0x1fff)
+    stopped colour(0xffff,0x1fff,0x1fff)
     #cwd "/tmp"
     send-line "export PROJECT=p1"
     send-line "echo 'Hello World!'\"   [aa]{BB}\""
