@@ -80,11 +80,26 @@ exitNotice = do
   response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
 
+active :: GTK.Color
+active = GTK.Color 65535 50000 50000
+inactive :: GTK.Color
+inactive = GTK.Color 32767 32767 65535
+
 
 -- add buttons to the button menu
 addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> IO ()
 addButton table x y notebook title autoStart dir commandList sendList = do
-  button <- GTK.buttonNewWithLabel title
+  label <- GTK.labelNew $ Just title
+  GTK.widgetModifyFg label GTK.StateNormal active
+  GTK.widgetModifyFg label GTK.StatePrelight active
+  GTK.widgetModifyFg label GTK.StateActive active
+  button <- GTK.buttonNew
+  --GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 32767 32757 32767)
+  --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 16383)
+  --GTK.widgetModifyBg button GTK.StateActive (GTK.Color 0 0 0)
+
+  GTK.containerAdd button label
+
   GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList >> return ())
 
   GTK.widgetShowAll button
@@ -117,11 +132,12 @@ addPane notebook title autoStart dir commandList sendList = do
     then return ()
     else GTK.widgetShowAll sb
 
-
   page <- GTK.notebookAppendPage notebook vbox title
+  tabLabel <- GTK.notebookGetTabLabel notebook vbox
+  setTabTextColour tabLabel inactive
 
-  GTK.on socket GTK.socketPlugRemoved $ unplug sb socket refproc
-  GTK.on socket GTK.socketPlugAdded $ plug socket sendList
+  GTK.on socket GTK.socketPlugRemoved $ unplug sb tabLabel socket refproc
+  GTK.on socket GTK.socketPlugAdded $ plug tabLabel socket sendList
 
   if autoStart
     then do
@@ -154,22 +170,23 @@ press button socket title refproc dir commandList = do
 -- detect the program creating its main window
 -- delay in order to give it time to set itself up
 -- send too quickly and the event queue locks up
-plug :: GTK.Socket -> [String] -> IO ()
-plug socket sendList = do
-  h <- GTK.timeoutAdd (delayedSend socket sendList) 1000
+plug :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO ()
+plug tabLabel socket sendList = do
+  h <- GTK.timeoutAdd (delayedSend tabLabel socket sendList) 1000
   return ()
 
 
 -- dummy routine to send a couple of test lines
-delayedSend :: GTK.Socket -> [String] -> IO Bool
-delayedSend socket sendList = do
+delayedSend :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO Bool
+delayedSend tabLabel socket sendList = do
   mapM_ (SC.sendLine socket) sendList
+  setTabTextColour tabLabel active
   return False
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Button -> GTK.Socket ->  PR.ProcRef -> IO Bool
-unplug button socket refproc = do
+unplug :: GTK.Button -> Maybe GTK.Widget -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug button tabLabel socket refproc = do
   GTK.widgetHide socket
   GTK.buttonSetLabel button "Restart"
 
@@ -177,7 +194,17 @@ unplug button socket refproc = do
 
   GTK.widgetShowAll button
 
+  setTabTextColour tabLabel inactive
+
   return True
+
+
+-- set the text colour of a tab label
+setTabTextColour :: Maybe GTK.Widget -> GTK.Color -> IO ()
+setTabTextColour Nothing _colour = return ()
+setTabTextColour (Just tabLabel) colour = do
+  GTK.widgetModifyFg tabLabel GTK.StateNormal colour
+  GTK.widgetModifyFg tabLabel GTK.StateActive colour
 
 
 -- change the main title to be the tab name
