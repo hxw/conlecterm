@@ -10,7 +10,7 @@ here
 
 
 # define the commands that will be used
-#   the definition is simpley a list of strings starting with the program
+#   the definition is simply a list of strings starting with the program
 #   two special items, window-id and tab-name take a format string argument
 #     e.g    window-id("--embed=0x%08x")
 #     or     "-embed" window-id("%d")
@@ -43,8 +43,7 @@ command gvim {
 
 pane p1 "Project 1" {
     run urxvt
-    start auto     (* does not apply to button *)
-#     start manual
+    start manual
     #cwd "/tmp"
     send-line "export PROJECT=p1"
     send-line "echo 'Hello World!'\"   [aa]{BB}\""
@@ -52,7 +51,7 @@ pane p1 "Project 1" {
 
 pane p2 "Project 2" {
     run urxvt
-    start manual   # does not apply to button
+    start manual
     send-line "export PROJECT=p2"
 }
 
