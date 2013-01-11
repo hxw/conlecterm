@@ -1,8 +1,14 @@
 # Makefile
 
+DESTDIR ?= ${HOME}/bin
 
 .PHONY: all
 all: conlecterm run
+
+.PHONY: install
+install: conlecterm
+	install conlecterm "${DESTDIR}"
+
 
 conlecterm: $(wildcard *.hs)
 	ghc -o "$@" --make Main.hs

@@ -30,8 +30,10 @@ run (orient, tabList, buttonList) = do
   notebook <- GTK.notebookNew
   GTK.notebookSetTabPos notebook $ orientation orient
   GTK.notebookSetHomogeneousTabs notebook True
+  GTK.notebookSetScrollable notebook True  -- allow tabs to be scrolled
 
   GTK.windowSetDefaultSize toplevel 800 600
+  GTK.windowMaximize toplevel
   GTK.set toplevel [GTK.windowTitle GTK.:= "Terminal"]
 
   toplevel `GTK.containerAdd` notebook
