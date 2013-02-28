@@ -52,7 +52,14 @@ the configuration file has three kinds of configuration elements
 
 # Compiling
 
-The program is written in Haskell and requires GTK and X11 (Ubuntu: libghc-gtk-dev, libghc-x11-de).
+The program is written in Haskell and requires GTK and X11
+
+Ubuntu packages:
+ 
+- libghc-gtk-dev
+- libghc-x11-dev
+- libghc-parsec3-dev
+
 A simple Makefile is provided.
 
 
