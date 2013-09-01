@@ -28,12 +28,13 @@ run (orient, tabList, buttonList) = do
   GTK.initGUI
   toplevel <- GTK.windowNew
   notebook <- GTK.notebookNew
+
+  GTK.on notebook GTK.pageReordered $ reordered notebook
+
   GTK.notebookSetTabPos notebook $ orientation orient
   GTK.notebookSetHomogeneousTabs notebook True
-  GTK.notebookSetScrollable notebook True  -- allow tabs to be scrolled
 
   GTK.windowSetDefaultSize toplevel 800 600
-  GTK.windowMaximize toplevel
   GTK.set toplevel [GTK.windowTitle GTK.:= "Terminal"]
 
   toplevel `GTK.containerAdd` notebook
@@ -121,23 +122,37 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   GTK.widgetSetCanFocus socket True
   GTK.containerAdd vbox socket
 
-  -- to hiold the process that wil be started later
+  -- to hold the process that will be started later
   refproc <- PR.newProcRef
 
-  -- start
+  -- close tab button
+  cb <- GTK.buttonNewWithLabel "Close"
+  GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
+  GTK.on cb GTK.buttonActivated $ closePage notebook vbox
+
+  -- start/restart button
   sb <- GTK.buttonNewWithLabel "Start"
-  GTK.on sb GTK.buttonActivated $ press sb socket title refproc dir commandList
+  GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 32767 65535 32767)
+  GTK.on sb GTK.buttonActivated $ press [sb, cb] socket title refproc dir commandList
+
+  -- button ordering start top, close bottom
   GTK.containerAdd vbox sb
+  GTK.containerAdd vbox cb
+
 
   if autoStart
     then return ()
-    else GTK.widgetShowAll sb
+    else do
+      GTK.widgetShowAll sb
+      GTK.widgetShowAll cb
 
   page <- GTK.notebookAppendPage notebook vbox title
   tabLabel <- GTK.notebookGetTabLabel notebook vbox
   setTabTextColour tabLabel stopped
+  -- new page is reordereable
+  GTK.notebookSetTabReorderable notebook vbox True
 
-  GTK.on socket GTK.socketPlugRemoved $ unplug sb tabLabel stopped socket refproc
+  GTK.on socket GTK.socketPlugRemoved $ unplug sb [cb] tabLabel stopped socket refproc
   GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
 
   if autoStart
@@ -146,6 +161,24 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
     else return ()
 
   return page
+
+-- remove a closed page
+closePage :: GTK.Notebook -> GTK.VBox -> IO ()
+closePage notebook page = do
+  pageNumber <-  GTK.notebookPageNum notebook page
+  case pageNumber of
+    Nothing ->  return ()
+    Just pageIndex ->  do
+      GTK.notebookRemovePage notebook pageIndex
+      return ()
+
+
+-- prevent reorder < 1st place
+reordered :: GTK.Notebook -> GTK.Widget -> Int -> IO ()
+reordered notebook page position = do
+  if position < 2
+    then GTK.notebookReorderChild notebook page 1
+    else return ()
 
 
 -- run a command
@@ -161,9 +194,9 @@ runC refproc socket title dir commandList = do
 
 
 -- button pressed
-press :: GTK.Button -> GTK.Socket -> String -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
-press button socket title refproc dir commandList = do
-  GTK.widgetHide button
+press :: [GTK.Button] -> GTK.Socket -> String -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
+press buttons socket title refproc dir commandList = do
+  mapM_ GTK.widgetHide buttons
   runC refproc socket title dir commandList
   GTK.widgetGrabFocus socket
 
@@ -186,14 +219,15 @@ delayedSend tabLabel colour socket sendList = do
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Button -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
-unplug button tabLabel colour socket refproc = do
+unplug :: GTK.Button ->  [GTK.Button] -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug startButton otherButtons tabLabel colour socket refproc = do
   GTK.widgetHide socket
-  GTK.buttonSetLabel button "Restart"
+  GTK.buttonSetLabel startButton "Restart"
 
   PR.shutdown refproc
 
-  GTK.widgetShowAll button
+  GTK.widgetShowAll startButton
+  mapM_ GTK.widgetShowAll otherButtons
 
   setTabTextColour tabLabel colour
 
