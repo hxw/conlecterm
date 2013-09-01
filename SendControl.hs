@@ -25,7 +25,7 @@ eol :: X.KeySym
 eol = X.xK_Linefeed
 
 
--- group together the low leve X related items
+-- group together the low level X related items
 -- needed to send a key event
 type NativeAccess = (X.Display, X.Window, X.Window)
 
