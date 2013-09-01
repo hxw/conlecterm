@@ -48,7 +48,6 @@ run (orient, tabList, buttonList) = do
   GTK.widgetShowAll table
   page <- GTK.notebookAppendPage notebook table "+NEW"
 
-
   -- create all the initial table
   mapM_ (\tab ->  do
             let (title, start, dir, command, sendList, running, stopped) = tab
@@ -63,21 +62,55 @@ run (orient, tabList, buttonList) = do
          ) (0, 0) buttonList
 
   -- link up the close button
-  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit
+  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit "default" orient notebook
 
   -- start the GTK event loop
   GTK.mainGUI
 
 
 -- do not allow exit if still some tabs are open
-checkExit :: IO Bool
-checkExit = do
+checkExit :: String ->  CP.Orientation -> GTK.Notebook -> IO Bool
+checkExit session orient notebook = do
+  putStrLn $ "session \"" ++ session ++ "\" " ++ (show orient) ++ " {"
+  pageCount <- GTK.notebookGetNPages notebook
+  putStrLn $ "    # total tabs = " ++ (show pageCount)
+  -- output current tabs
+  let oneTab i = do
+        p <- GTK.notebookGetNthPage notebook i
+        case p of
+          Nothing -> return ()
+          Just page -> do
+            title <- GTK.notebookGetTabLabelText notebook page
+            putStrLn $ "    # tab: " ++ (show i)
+            case title of
+              Nothing -> putStrLn $ "    # Empty"
+              Just text -> putStrLn $ "    tab \"" ++ text ++ "\""
+    in mapM_ oneTab [1 .. pageCount - 1]
+
+  -- output current buttons
+  buttonsPage <- GTK.notebookGetNthPage notebook 0
+  case buttonsPage of
+    Nothing -> return ()
+    Just t -> do
+      let table = GTK.castToTable t
+      c <- GTK.containerGetChildren table
+      -- the list c appears to be reversed!
+      let pp w = do
+            let button = GTK.castToButton w
+            GTK.containerForeach button (\b -> do
+            label <- GTK.labelGetText $ GTK.castToLabel b
+            putStrLn $ "    button \"" ++ label ++"\"")
+        in mapM_ pp $ reverse c
+
+  putStrLn $ "}"
   active <- PR.activeProcs
   let continue = active > 0
   if continue then exitNotice else GTK.mainQuit
   return $ continue
 
 
+-- dialog warning about acive tabs
+exitNotice :: IO ()
 exitNotice = do
   dialog <- GTK.messageDialogNew Nothing [GTK.DialogDestroyWithParent] GTK.MessageWarning GTK.ButtonsOk "Some tabs are still active"
   response <- GTK.dialogRun dialog
