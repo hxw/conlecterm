@@ -22,6 +22,11 @@ orientation CP.RightTabs  = GTK.PosRight
 orientation CP.TopTabs    = GTK.PosTop
 orientation CP.BottomTabs = GTK.PosBottom
 
+orientationToText :: CP.Orientation -> String
+orientationToText CP.LeftTabs   = "left"
+orientationToText CP.RightTabs  = "right"
+orientationToText CP.TopTabs    = "top"
+orientationToText CP.BottomTabs = "bottom"
 
 run :: CP.SessionInfo -> IO ()
 run (orient, tabList, buttonList) = do
@@ -50,13 +55,13 @@ run (orient, tabList, buttonList) = do
 
   -- create all the initial table
   mapM_ (\tab ->  do
-            let (title, start, dir, command, sendList, running, stopped) = tab
-            addPane notebook title start dir command sendList running stopped) tabList
+            let (name, title, start, dir, command, sendList, running, stopped) = tab
+            addPane notebook name title start dir command sendList running stopped) tabList
 
   -- create buttons
   foldlM (\(x, y) button ->  do
-            let (title, start, dir, command, sendList, running, stopped) = button
-            addButton table x y notebook title start dir command sendList running stopped
+            let (name, title, start, dir, command, sendList, running, stopped) = button
+            addButton table x y notebook name title start dir command sendList running stopped
             let x1 = x + 1
             if x > 4 then return (0, y + 1) else return (x1, y)
          ) (0, 0) buttonList
@@ -71,7 +76,7 @@ run (orient, tabList, buttonList) = do
 -- do not allow exit if still some tabs are open
 checkExit :: String ->  CP.Orientation -> GTK.Notebook -> IO Bool
 checkExit session orient notebook = do
-  putStrLn $ "session \"" ++ session ++ "\" " ++ (show orient) ++ " {"
+  putStrLn $ "session \"" ++ session ++ "\" " ++ (orientationToText orient) ++ " {"
   pageCount <- GTK.notebookGetNPages notebook
   putStrLn $ "    # total tabs = " ++ (show pageCount)
   -- output current tabs
@@ -80,11 +85,8 @@ checkExit session orient notebook = do
         case p of
           Nothing -> return ()
           Just page -> do
-            title <- GTK.notebookGetTabLabelText notebook page
-            putStrLn $ "    # tab: " ++ (show i)
-            case title of
-              Nothing -> putStrLn $ "    # Empty"
-              Just text -> putStrLn $ "    tab \"" ++ text ++ "\""
+            name <- GTK.widgetGetName page
+            putStrLn $ "    tab " ++ name
     in mapM_ oneTab [1 .. pageCount - 1]
 
   -- output current buttons
@@ -97,9 +99,8 @@ checkExit session orient notebook = do
       -- the list c appears to be reversed!
       let pp w = do
             let button = GTK.castToButton w
-            GTK.containerForeach button (\b -> do
-            label <- GTK.labelGetText $ GTK.castToLabel b
-            putStrLn $ "    button \"" ++ label ++"\"")
+            name <- GTK.widgetGetName button
+            putStrLn $ "    button " ++ name
         in mapM_ pp $ reverse c
 
   putStrLn $ "}"
@@ -118,8 +119,8 @@ exitNotice = do
 
 
 -- add buttons to the button menu
-addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
-addButton table x y notebook title autoStart dir commandList sendList running stopped = do
+addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
+addButton table x y notebook name title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
 
   case running of
@@ -133,9 +134,10 @@ addButton table x y notebook title autoStart dir commandList sendList running st
   --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 16383)
   --GTK.widgetModifyBg button GTK.StateActive (GTK.Color 0 0 0)
 
+  GTK.widgetSetName button name
   GTK.containerAdd button label
 
-  GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
+  GTK.on button GTK.buttonActivated $ (addPane notebook name title autoStart dir commandList sendList running stopped >> return ())
 
   GTK.widgetShowAll button
   GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
@@ -143,10 +145,11 @@ addButton table x y notebook title autoStart dir commandList sendList running st
 
 
 -- add auto/manual stared panes
-addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
-addPane notebook title autoStart dir commandList sendList running stopped = do
+addPane :: GTK.Notebook ->  String -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
+addPane notebook name title autoStart dir commandList sendList running stopped = do
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
+  GTK.widgetSetName vbox name
 
   GTK.widgetShowAll vbox
 

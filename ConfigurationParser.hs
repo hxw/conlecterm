@@ -706,7 +706,7 @@ compile configFileName = do
 
 -- simple tuple type for returning the expandex session
 
-type TabInfo = (String, Bool, Maybe String, CommandList, SendList, Maybe Colour, Maybe Colour)
+type TabInfo = (String, String, Bool, Maybe String, CommandList, SendList, Maybe Colour, Maybe Colour)
 
 type TabInfoList = [TabInfo]
 type ButtonInfoList = [TabInfo]
@@ -742,7 +742,7 @@ expandSession (hashCmd, hashPane, hashSession) name = do
                            , paneStopped = stopped
                            } = fromJust p
             command <- HT.lookup hashCmd run
-            return $ (title, start, dir, fromJust command, send, running, stopped)
+            return $ (pane, title, start, dir, fromJust command, send, running, stopped)
 
 -- take a command list and convert to a list of strings
 -- expanding the integer value provided
