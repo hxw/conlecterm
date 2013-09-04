@@ -17,17 +17,18 @@ import qualified TerminalUI as TU
 
 --constants
 currentVersion = "Version 1"
-defaultSession = ""
+defaultSession = "default"
 
+configurationFile = "config.rc"
 
-defaultConfigFile :: IO String
-defaultConfigFile = do
+defaultConfigDirectory :: IO String
+defaultConfigDirectory = do
   progname <- getProgName
   case progname of
     "" ->
-      return ".conlectermrc"
+      return ".conlecterm"
     n ->
-      return $ "." ++ n ++ "rc"
+      return $ "." ++ n
 
 
 -- main program
@@ -37,7 +38,7 @@ main = do
   let ( actions, arguments, msgs ) = getOpt RequireOrder options args
   if [] /= msgs then usage msgs else return ()
   opts <- foldl (>>=) defaultOptions actions
-  let Options { optConfig = config
+  let Options { optConfig = configDirectory
               , optSession = session
               , optVerbose = verbose
               } = opts
@@ -50,14 +51,17 @@ main = do
 
   let startSession = if length arguments == 0 then defaultSession else (arguments !! 0)
 
+  let configFile = combine configDirectory configurationFile
+  let sessionFile = combine configDirectory $ "session-" ++ startSession ++ ".rc"
   if verbose
     then do
-      hPutStrLn stderr $ "default session = " ++ (show session)
-      hPutStrLn stderr $ "config file     = " ++ config
-      hPutStrLn stderr $ "start session   = " ++ (show startSession)
+      hPutStrLn stderr $ "requested session = " ++ (show session)
+      hPutStrLn stderr $ "start session     = " ++ (show startSession)
+      hPutStrLn stderr $ "config file       = " ++ configFile
+      hPutStrLn stderr $ "session file      = " ++ sessionFile
     else return ()
 
-  mh <- CP.compile config
+  mh <- CP.compile [configFile, sessionFile]
   case mh of
     Nothing ->
       exitFailure
@@ -67,7 +71,7 @@ main = do
         Nothing ->
           usage $ ["unknown session: ", show startSession]
         Just s ->
-          TU.run s
+          TU.run s startSession sessionFile
   exitSuccess
 
 
@@ -97,7 +101,7 @@ data Options = Options { optVerbose :: Bool
 
 defaultOptions :: IO Options
 defaultOptions = do
-  defaultCfg <-  defaultConfigFile
+  defaultCfg <-  defaultConfigDirectory
   cfg <- configPath defaultCfg
   return Options { optVerbose = False
                  , optSession = ""
@@ -109,7 +113,7 @@ options :: [OptDescr (Options -> IO Options)]
 options = [ Option ['h'] ["help"]    (NoArg showUsage)           "this message"
           , Option ['v'] ["verbose"] (NoArg setVerbose)          "verbose output"
           , Option ['V'] ["version"] (NoArg showVersion)         "show version number"
-          , Option ['c'] ["config"]  (ReqArg setConfig "FILE")   "configuration file"
+          , Option ['c'] ["config"]  (ReqArg setConfig "DIR")    "configuration directory"
 --          , Option ['c'] ["config"]  (ReqArg readInput "FILE")   "configuration file"
 --          , Option ['o'] ["output"]  (ReqArg writeOutput "FILE") "output file to write"
           , Option ['s'] ["session"] (ReqArg setSession "NAME")  "session name"

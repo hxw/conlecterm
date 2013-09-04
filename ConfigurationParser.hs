@@ -4,6 +4,7 @@
 module ConfigurationParser where
 
 import Data.Maybe( isNothing, fromMaybe, fromJust )
+import Data.Foldable( foldlM )
 import Text.Parsec.Prim( ParsecT )
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
@@ -513,16 +514,16 @@ sessionSetup name = do
   setState sNew
 
   l <- sessionLookup name
-  dupDef blockStartPos l name
+  --dupDef blockStartPos l name
   return blockStartPos
 
 
 sessionCompile :: SourcePos -> String -> Orientation -> MyParser ()
 sessionCompile pos name orientation = do
-  l <- sessionLookup name
+  --l <- sessionLookup name
   --dupDef pos l name
-  case l of
-    Nothing -> do
+  --case l of
+  --  Nothing -> do
       s <- getState
       let UserState { usSessions = hSession
                     , usCurrentSessionButtons = buttons
@@ -536,8 +537,8 @@ sessionCompile pos name orientation = do
 
       lift $ HT.insert hSession name session
 
-    Just _  -> do
-      return ()
+  --  Just _  -> do
+  --    return ()
 
 
 sessionParser :: MyParser ()
@@ -553,7 +554,7 @@ sessionParser = do
 sessionName :: MyParser String
 sessionName =
     do{ reserved "default"
-      ; return ""
+      ; return "default"
       }
   <|>  do{ n <- identifier
       ; return n
@@ -655,11 +656,9 @@ tabItem =
 --runParser :: GenParser tok st a -> st -> SourceName -> [tok] -> Either ParseError a
 
 --run :: Show a => MyParser a -> String -> IO ()
-run :: MyParser Bool -> String -> String -> IO (Maybe Hashes)
-run p fileName input = do
-  hashCmd <- HT.new (==) HT.hashString :: IO CommandHash
-  hashPane <- HT.new (==) HT.hashString :: IO PaneHash
-  hashSession <- HT.new (==) HT.hashString :: IO SessionHash
+run :: MyParser Bool -> Hashes -> String -> String -> IO (Maybe Hashes)
+run p (hashCmd, hashPane, hashSession) fileName input = do
+
   let initialState = initUserState hashCmd hashPane hashSession
 
   result <- N.runParserT p initialState fileName input
@@ -675,27 +674,40 @@ run p fileName input = do
         else return Nothing
 
 
-runLex :: MyParser Bool -> String -> String -> IO (Maybe Hashes)
-runLex p fileName input =
+runLex :: MyParser Bool -> Hashes -> String -> String -> IO (Maybe Hashes)
+runLex p hashes fileName input =
   run (do{ whiteSpace
          ; x <- p
          ; eof
          ; return x
-         }) fileName input
+         }) hashes fileName input
 
 
 -- extry points
 -- ------------
 
 -- compile a configuration file
-compile :: String -> IO (Maybe Hashes)
-compile configFileName = do
+compile :: [String] -> IO (Maybe Hashes)
+compile configFileNames = do
+  hashCmd <- HT.new (==) HT.hashString :: IO CommandHash
+  hashPane <- HT.new (==) HT.hashString :: IO PaneHash
+  hashSession <- HT.new (==) HT.hashString :: IO SessionHash
+  let hashes = (hashCmd, hashPane, hashSession)
+  result <- foldlM compileOne hashes configFileNames
+  return $ Just result
+
+compileOne :: Hashes -> String -> IO Hashes
+compileOne hashes configFileName = do
+
   withFile configFileName ReadMode (process configFileName)
     where
-      process :: String -> Handle -> IO (Maybe Hashes)
+      process :: String -> Handle -> IO Hashes
       process name input = do
         s <- hGetContents input
-        runLex configParser name s
+        result <- runLex configParser hashes name s
+        case result of
+          Nothing -> return hashes
+          Just updateHashes -> return updateHashes
 {-
   case parse configFile name s of
     Left e -> do putStrLn "Error parsing input:"

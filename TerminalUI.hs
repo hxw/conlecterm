@@ -7,6 +7,7 @@ import Data.Maybe( fromJust )
 import Data.Foldable( foldlM )
 import Control.Monad.Trans( liftIO )
 import System.Process( ProcessHandle )
+import System.IO
 
 import qualified Graphics.UI.Gtk as GTK
 
@@ -28,8 +29,8 @@ orientationToText CP.RightTabs  = "right"
 orientationToText CP.TopTabs    = "top"
 orientationToText CP.BottomTabs = "bottom"
 
-run :: CP.SessionInfo -> IO ()
-run (orient, tabList, buttonList) = do
+run :: CP.SessionInfo -> String -> String -> IO ()
+run (orient, tabList, buttonList) sessionName sessionFileName = do
   GTK.initGUI
   toplevel <- GTK.windowNew
   notebook <- GTK.notebookNew
@@ -67,48 +68,53 @@ run (orient, tabList, buttonList) = do
          ) (0, 0) buttonList
 
   -- link up the close button
-  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit "default" orient notebook
+  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit sessionName sessionFileName orient notebook
 
   -- start the GTK event loop
   GTK.mainGUI
 
 
 -- do not allow exit if still some tabs are open
-checkExit :: String ->  CP.Orientation -> GTK.Notebook -> IO Bool
-checkExit session orient notebook = do
-  putStrLn $ "session \"" ++ session ++ "\" " ++ (orientationToText orient) ++ " {"
-  pageCount <- GTK.notebookGetNPages notebook
-  putStrLn $ "    # total tabs = " ++ (show pageCount)
-  -- output current tabs
-  let oneTab i = do
-        p <- GTK.notebookGetNthPage notebook i
-        case p of
-          Nothing -> return ()
-          Just page -> do
-            name <- GTK.widgetGetName page
-            putStrLn $ "    tab " ++ name
-    in mapM_ oneTab [1 .. pageCount - 1]
-
-  -- output current buttons
-  buttonsPage <- GTK.notebookGetNthPage notebook 0
-  case buttonsPage of
-    Nothing -> return ()
-    Just t -> do
-      let table = GTK.castToTable t
-      c <- GTK.containerGetChildren table
-      -- the list c appears to be reversed!
-      let pp w = do
-            let button = GTK.castToButton w
-            name <- GTK.widgetGetName button
-            putStrLn $ "    button " ++ name
-        in mapM_ pp $ reverse c
-
-  putStrLn $ "}"
+checkExit :: String ->  String -> CP.Orientation -> GTK.Notebook -> IO Bool
+checkExit sessionName sessionFileName orient notebook = do
+  withFile sessionFileName WriteMode saveSession
   active <- PR.activeProcs
   let continue = active > 0
   if continue then exitNotice else GTK.mainQuit
   return $ continue
 
+  where
+
+    saveSession :: Handle -> IO ()
+    saveSession handle = do
+      hPutStrLn handle $ "session \"" ++ sessionName ++ "\" " ++ (orientationToText orient) ++ " {"
+      pageCount <- GTK.notebookGetNPages notebook
+      hPutStrLn handle $ "    # total tabs = " ++ (show pageCount)
+      -- output current tabs
+      let oneTab i = do
+            p <- GTK.notebookGetNthPage notebook i
+            case p of
+              Nothing -> return ()
+              Just page -> do
+                name <- GTK.widgetGetName page
+                hPutStrLn handle $ "    tab " ++ name
+        in mapM_ oneTab [1 .. pageCount - 1]
+
+      -- output current buttons
+      buttonsPage <- GTK.notebookGetNthPage notebook 0
+      case buttonsPage of
+        Nothing -> return ()
+        Just t -> do
+          let table = GTK.castToTable t
+          c <- GTK.containerGetChildren table
+          -- the list c appears to be reversed!
+          let pp w = do
+                let button = GTK.castToButton w
+                name <- GTK.widgetGetName button
+                hPutStrLn handle $ "    button " ++ name
+            in mapM_ pp $ reverse c
+
+      hPutStrLn handle $ "}"
 
 -- dialog warning about acive tabs
 exitNotice :: IO ()

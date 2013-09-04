@@ -16,7 +16,7 @@ conlecterm: $(wildcard *.hs)
 
 .PHONY: run
 run: conlecterm
-	./conlecterm --config=config.rc
+	./conlecterm --verbose --config=.
 
 
 .PHONY: clean
