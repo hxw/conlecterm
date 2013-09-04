@@ -161,26 +161,34 @@ addPane notebook name title autoStart dir commandList sendList running stopped =
   -- to hold the process that will be started later
   refproc <- PR.newProcRef
 
+  -- table to hold buttons
+  let rows = 10
+  let columns = 5
+  buttonBox <- GTK.tableNew rows columns False
+  --GTK.widgetShowAll table
+
   -- close tab button
   cb <- GTK.buttonNewWithLabel "Close"
   GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
   GTK.on cb GTK.buttonActivated $ closePage notebook vbox
+  GTK.widgetShowAll cb
 
   -- start/restart button
   sb <- GTK.buttonNewWithLabel "Start"
   GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 32767 65535 32767)
-  GTK.on sb GTK.buttonActivated $ press [sb, cb] socket title refproc dir commandList
+  GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
+  GTK.widgetShowAll sb
 
   -- button ordering start top, close bottom
-  GTK.containerAdd vbox sb
-  GTK.containerAdd vbox cb
+  GTK.tableAttachDefaults buttonBox sb 0 columns 0 (rows - 1)
+  GTK.tableAttachDefaults buttonBox cb 1 (columns - 1) (rows - 1) rows
+  GTK.containerAdd vbox buttonBox
 
-
+  -- automatically start sub-process?
   if autoStart
     then return ()
     else do
-      GTK.widgetShowAll sb
-      GTK.widgetShowAll cb
+      GTK.widgetShowAll buttonBox
 
   page <- GTK.notebookAppendPage notebook vbox title
   tabLabel <- GTK.notebookGetTabLabel notebook vbox
@@ -188,7 +196,7 @@ addPane notebook name title autoStart dir commandList sendList running stopped =
   -- new page is reordereable
   GTK.notebookSetTabReorderable notebook vbox True
 
-  GTK.on socket GTK.socketPlugRemoved $ unplug sb [cb] tabLabel stopped socket refproc
+  GTK.on socket GTK.socketPlugRemoved $ unplug sb buttonBox tabLabel stopped socket refproc
   GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
 
   if autoStart
@@ -230,9 +238,9 @@ runC refproc socket title dir commandList = do
 
 
 -- button pressed
-press :: [GTK.Button] -> GTK.Socket -> String -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
+press :: GTK.Table -> GTK.Socket -> String -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
 press buttons socket title refproc dir commandList = do
-  mapM_ GTK.widgetHide buttons
+  GTK.widgetHide buttons
   runC refproc socket title dir commandList
   GTK.widgetGrabFocus socket
 
@@ -255,15 +263,14 @@ delayedSend tabLabel colour socket sendList = do
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Button ->  [GTK.Button] -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug :: GTK.Button ->  GTK.Table -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
 unplug startButton otherButtons tabLabel colour socket refproc = do
   GTK.widgetHide socket
   GTK.buttonSetLabel startButton "Restart"
 
   PR.shutdown refproc
 
-  GTK.widgetShowAll startButton
-  mapM_ GTK.widgetShowAll otherButtons
+  GTK.widgetShowAll otherButtons
 
   setTabTextColour tabLabel colour
 
