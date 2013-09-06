@@ -21,4 +21,4 @@ run: conlecterm
 
 .PHONY: clean
 clean:
-	rm -f conlecterm *.o *.hi
+	rm -f conlecterm *.o *.hi session-*.rc

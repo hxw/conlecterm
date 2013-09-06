@@ -14,6 +14,8 @@ import Text.ParserCombinators.Parsec.Language
 import qualified Graphics.UI.Gtk as GTK
 
 import System.IO
+import System.Posix.Files ( fileExist )
+
 import qualified Data.HashTable as HT
 import Control.Monad.Trans (liftIO, lift)
 import qualified Text.Printf as TP
@@ -683,7 +685,7 @@ runLex p hashes fileName input =
          }) hashes fileName input
 
 
--- extry points
+-- entry points
 -- ------------
 
 -- compile a configuration file
@@ -698,16 +700,18 @@ compile configFileNames = do
 
 compileOne :: Hashes -> String -> IO Hashes
 compileOne hashes configFileName = do
-
-  withFile configFileName ReadMode (process configFileName)
-    where
-      process :: String -> Handle -> IO Hashes
-      process name input = do
-        s <- hGetContents input
-        result <- runLex configParser hashes name s
-        case result of
-          Nothing -> return hashes
-          Just updateHashes -> return updateHashes
+  flag <- fileExist configFileName
+  case flag of
+    False -> return hashes
+    True -> withFile configFileName ReadMode (process configFileName)
+  where
+    process :: String -> Handle -> IO Hashes
+    process name input = do
+      s <- hGetContents input
+      result <- runLex configParser hashes name s
+      case result of
+        Nothing -> return hashes
+        Just updateHashes -> return updateHashes
 {-
   case parse configFile name s of
     Left e -> do putStrLn "Error parsing input:"
