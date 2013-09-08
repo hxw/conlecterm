@@ -18,7 +18,7 @@ import qualified TerminalUI as TU
 
 
 --constants
-currentVersion = "Version 1"
+currentVersion = "Version 2"
 defaultSession = "default"
 
 configurationFile = "config.rc"

@@ -10,6 +10,9 @@ a single top level window.
 Each group of applications is termed a _session_ and multiple sessions
 can be defined each having the option of a different tab orientation.
 
+Tabs can be moved by draggng them to the desired position.
+
+The order of the tabs is saved when close button is clicked. 
 
 # Configuration
 
@@ -24,7 +27,7 @@ the configuration file has three kinds of configuration elements
 - Panes
 
   Define the text that appears on the tab, the command to run, the
-  initial directory.  (*TODO* send command to program, manual start)
+  initial directory.
 
 
 - Sessions
@@ -62,16 +65,32 @@ Ubuntu packages:
 
 A simple Makefile is provided.
 
+# Configuration
+
+Configuration directory is searched from:
+
+- `${XDG_HOME}/conlecterm`
+- `${HOME}/.config/conlecterm`
+- `${HOME}/.conlecterm`
+
+Then first directory found is used and this is checked for a
+configuration file. 
+
+The configuration is loaded from a file in the above directory called
+`config.rc`. 
+
+The program will not start if a valid directory is not found or the
+directory does not conatin a `config.rc`. 
+
+Saved session files are called `session-SESSION.rc` where *SESSION* is
+replaced by the session name.  The format of this file is the same as
+a session block from the main configuratiopn file.  Session fils
+simple override the session in the main configuration, so to return to
+the initial session simple delete the asppropriate session file. 
 
 # Bugs
-
-- Unity launcher icon not working - cannot switch focus. Could this be associated with xterm focus problem?
-- Unity full screen does not get close button on global menu
 
 
 # TODO
 
 - add the _send_ function
-- make the "restart/close" dialog embed in the pane
-- add the manual start option (requires previous item)
-- how and which screen position to implement _buttons_ (a special tab called NEW?)
