@@ -8,8 +8,10 @@ import System.Console.GetOpt
 import System.Exit( exitSuccess, exitFailure )
 import System.IO
 import System.FilePath( combine, pathSeparator )
-import Control.Exception( tryJust )
-import System.IO.Error( isDoesNotExistError )
+import Control.Exception( catchJust )
+import Control.Monad( filterM )
+import System.IO.Error( isDoesNotExistErrorType, ioeGetErrorType)
+import System.Posix.Files ( fileExist, isDirectory, getFileStatus )
 
 import qualified ConfigurationParser as CP
 import qualified TerminalUI as TU
@@ -20,15 +22,6 @@ currentVersion = "Version 1"
 defaultSession = "default"
 
 configurationFile = "config.rc"
-
-defaultConfigDirectory :: IO String
-defaultConfigDirectory = do
-  progname <- getProgName
-  case progname of
-    "" ->
-      return ".conlecterm"
-    n ->
-      return $ "." ++ n
 
 
 -- main program
@@ -61,6 +54,15 @@ main = do
       hPutStrLn stderr $ "session file      = " ++ sessionFile
     else return ()
 
+  case configDirectory of
+    "" -> usage ["missing configuration directory"]
+    _ -> return ()
+
+  haveConfig <- fileExist configFile
+  case haveConfig of
+    False -> usage ["missing configuration file: ", configFile]
+    True -> return ()
+
   mh <- CP.compile [configFile, sessionFile]
   case mh of
     Nothing ->
@@ -75,20 +77,44 @@ main = do
   exitSuccess
 
 
--- get the absolute path of a file
--- no change if already absolute
--- if HOME is set use it as the prefix otherwise use the root directory
-configPath :: String -> IO String
-configPath p = do
-  result <- tryJust justDoesNotExistError $ getEnv "HOME"
-  case result of
-    Left path  -> return $ combine path p
-    Right path -> return $ combine path p
+-- determine configuration directory
+-- search for th XDG file first
+defaultConfigDirectory :: IO String
+defaultConfigDirectory = do
+  pn <- getProgName
+  let programName = case pn of
+        "" ->  "conlecterm"
+        n ->  n
+  let configDirectories = [ ("XDG_HOME", programName)
+                          , ("HOME", combine ".config" programName)
+                          , ("HOME", "." ++ programName)
+                          ]
+  configs <- mapM getConfig configDirectories
+  validConfigs <- filterM getDirectoryStatus configs
+  case validConfigs of
+    [] ->  return ""
+    _ ->  return $ head validConfigs
+
+
+getConfig :: (String, String) -> IO String
+getConfig (env, dir) = do
+  catchJust (\e -> if isDoesNotExistErrorType (ioeGetErrorType e) then Just () else Nothing)
+    (getc2 env dir)
+    (\_ -> return "")
   where
-    justDoesNotExistError :: IOError -> Maybe String
-    justDoesNotExistError e
-        | isDoesNotExistError e = Just [pathSeparator]
-        | otherwise             = Nothing
+    getc2 :: String -> String -> IO String
+    getc2 env dir = do
+      path <- getEnv env
+      return $ combine path dir
+
+getDirectoryStatus :: String -> IO Bool
+getDirectoryStatus fileName = do
+  status <- fileExist fileName
+  if status
+    then do
+      status <- getFileStatus fileName
+      return $ isDirectory status
+    else return False
 
 
 -- option processing
@@ -102,10 +128,9 @@ data Options = Options { optVerbose :: Bool
 defaultOptions :: IO Options
 defaultOptions = do
   defaultCfg <-  defaultConfigDirectory
-  cfg <- configPath defaultCfg
   return Options { optVerbose = False
                  , optSession = ""
-                 , optConfig = cfg
+                 , optConfig = defaultCfg
                  }
 
 
@@ -152,5 +177,5 @@ usage :: [String] -> IO ()
 usage errors = do
   progname <- getProgName
   let header = "usage: " ++ progname ++ " [option...] session"
-  hPutStrLn stderr $ concat errors ++ usageInfo header options
+  hPutStrLn stderr $ concat errors ++ "\n" ++ usageInfo header options
   exitFailure
