@@ -16,7 +16,7 @@ import qualified Graphics.UI.Gtk as GTK
 import System.IO
 import System.Posix.Files ( fileExist )
 
-import qualified Data.HashTable as HT
+import qualified Data.HashTable.IO as HT
 import Control.Monad.Trans (liftIO, lift)
 import qualified Text.Printf as TP
 import qualified System.Directory as SD
@@ -55,9 +55,9 @@ data SessionRecord =
                 } deriving Show
 
 
-type CommandHash = HT.HashTable String CommandList
-type PaneHash = HT.HashTable String PaneRecord
-type SessionHash = HT.HashTable String SessionRecord
+type CommandHash = HT.BasicHashTable String CommandList
+type PaneHash = HT.BasicHashTable String PaneRecord
+type SessionHash = HT.BasicHashTable String SessionRecord
 
 type Hashes = (CommandHash, PaneHash, SessionHash)
 
@@ -691,9 +691,9 @@ runLex p hashes fileName input =
 -- compile a configuration file
 compile :: [String] -> IO (Maybe Hashes)
 compile configFileNames = do
-  hashCmd <- HT.new (==) HT.hashString :: IO CommandHash
-  hashPane <- HT.new (==) HT.hashString :: IO PaneHash
-  hashSession <- HT.new (==) HT.hashString :: IO SessionHash
+  hashCmd <- HT.new :: IO CommandHash
+  hashPane <- HT.new :: IO PaneHash
+  hashSession <- HT.new :: IO SessionHash
   let hashes = (hashCmd, hashPane, hashSession)
   result <- foldlM compileOne hashes configFileNames
   return $ Just result
