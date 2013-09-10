@@ -21,8 +21,8 @@ noModMask :: X.KeyMask
 noModMask = 0
 
 eol :: X.KeySym
---eol = X.xK_Return
-eol = X.xK_Linefeed
+eol = X.xK_Return
+--eol = X.xK_Linefeed
 
 
 -- group together the low level X related items

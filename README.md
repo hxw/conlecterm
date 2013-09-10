@@ -12,7 +12,7 @@ can be defined each having the option of a different tab orientation.
 
 Tabs can be moved by draggng them to the desired position.
 
-The order of the tabs is saved when close button is clicked. 
+The order of the tabs is saved when close button is clicked.
 
 # Configuration
 
@@ -57,11 +57,16 @@ the configuration file has three kinds of configuration elements
 
 The program is written in Haskell and requires GTK and X11
 
-Ubuntu packages:
- 
-- libghc-gtk-dev
-- libghc-x11-dev
-- libghc-parsec3-dev
+Haskell packages:
+
+Ubuntu                       FreeBSD
+-------------------------    -------------------------
+libghc-gtk-dev               hs-gtk
+libghc-x11-dev               hs-X11
+libghc-parsec3-dev           hs-parsec
+libghc-hashtables-dev        hs-hashtables
+
+Installing the above packages should bring in the right dependencies.
 
 A simple Makefile is provided.
 
@@ -74,19 +79,19 @@ Configuration directory is searched from:
 - `${HOME}/.conlecterm`
 
 Then first directory found is used and this is checked for a
-configuration file. 
+configuration file.
 
 The configuration is loaded from a file in the above directory called
-`config.rc`. 
+`config.rc`.
 
 The program will not start if a valid directory is not found or the
-directory does not conatin a `config.rc`. 
+directory does not conatin a `config.rc`.
 
 Saved session files are called `session-SESSION.rc` where *SESSION* is
 replaced by the session name.  The format of this file is the same as
 a session block from the main configuratiopn file.  Session fils
 simple override the session in the main configuration, so to return to
-the initial session simple delete the asppropriate session file. 
+the initial session simple delete the asppropriate session file.
 
 # Bugs
 
