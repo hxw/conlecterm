@@ -44,18 +44,51 @@ command gvim {
 pane p1 "Project 1" {
     run urxvt
     start manual
-    running colour(0x1fff,0xffff,0x1fff)
-    stopped colour(0xffff,0x1fff,0x1fff)
+    running colour(0xffff,0x1fff,0x1fff)
+    stopped colour(0x3fff,0x1fff,0x1fff)
     #cwd "/tmp"
     send-line "export PROJECT=p1"
     send-line "echo 'Hello World!'\"   [aa]{BB}\""
 }
 
+# Note: no cwd so starts in directory where conlecterm was started
 pane p2 "Project 2" {
     run urxvt
     start manual
+    running colour(0x1fff,0xffff,0x1fff)
+    stopped colour(0x1fff,0x3fff,0x1fff)
     send-line "export PROJECT=p2"
 }
+
+pane p3 "Project 3" {
+    run urxvt
+    start manual
+    running colour(0x1fff,0x1fff,0xffff)
+    stopped colour(0x1fff,0x1fff,0x3fff)
+    cwd "/tmp"
+    send-line "pwd"
+}
+
+# user
+pane p4 "Project 4" {
+    run urxvt
+    start manual
+    running colour(0x3fff,0xffff,0x1fff)
+    stopped colour(0x3fff,0x3fff,0x1fff)
+    cwd ""   # same as "${HOME}"  (
+    send-line "pwd"
+}
+
+# user relative
+pane p5 "Project 5" {
+    run urxvt
+    start manual
+    running colour(0x1fff,0xffff,0xffff)
+    stopped colour(0x1fff,0x3fff,0x3fff)
+    cwd ".config"    # no leading '/' so => "${HOME}/.config"
+    send-line "pwd"
+}
+
 
 pane wk "Work" {
     run urxvt
@@ -98,10 +131,16 @@ session default left {
     #tab emacs
     tab p1
     tab p2
-#    tab * 3 p1
-#    tab * 2 p2
+    tab p3
+    tab p4
+    tab p5
+    tab * 3 p1
+    tab * 2 p2
     button p1
     button p2
+    button p3
+    button p4
+    button p5
 }
 
 # a named session

@@ -9,8 +9,13 @@ all: conlecterm run
 install: conlecterm
 	install conlecterm "${DESTDIR}"
 
+SOURCES = Main.hs
+SOURCES += ConfigurationParser.hs
+SOURCES += ProcessRunner.hs
+SOURCES += SendControl.hs
+SOURCES += TerminalUI.hs
 
-conlecterm: $(wildcard *.hs)
+conlecterm: ${SOURCES}
 	ghc -o "$@" --make Main.hs
 #	ghc -o "$@" -threaded --make Main.hs
 

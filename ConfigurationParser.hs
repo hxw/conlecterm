@@ -15,6 +15,8 @@ import qualified Graphics.UI.Gtk as GTK
 
 import System.IO
 import System.Posix.Files ( fileExist )
+import System.FilePath( combine, pathSeparator )
+import System.Environment( getEnv )
 
 import qualified Data.HashTable.IO as HT
 import Control.Monad.Trans (liftIO, lift)
@@ -371,12 +373,25 @@ cwdSetup = do
 
 cwdCompile :: SourcePos -> String -> MyParser ()
 cwdCompile pos dirName = do
-  f <- lift $ SD.doesDirectoryExist dirName
+  posError pos $ "directory got: " ++ (show dirName)
+  absDirName <- lift $
+               case () of _
+                             | dirName == "" -> getEnv "HOME"
+                             | (head dirName) == pathSeparator -> return dirName
+                             | otherwise -> do
+                                  path <- getEnv "HOME"
+                                  return $ combine path dirName
+
+  -- posError pos $ "directory a: " ++ (show $ head dirName)
+  posError pos $ "directory b: " ++ (show pathSeparator)
+  posError pos $ "directory c: " ++ (show absDirName)
+
+  f <- lift $ SD.doesDirectoryExist absDirName
   case f of
-    False -> posError pos $ "directory: " ++ (show dirName) ++ " does not exist"
+    False -> posError pos $ "directory: " ++ (show absDirName) ++ " does not exist"
     True  -> do
       s <- getState
-      let sNew = s { usCurrentPaneDir = Just dirName }
+      let sNew = s { usCurrentPaneDir = Just absDirName }
       setState sNew
 
 
