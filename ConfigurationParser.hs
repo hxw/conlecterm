@@ -373,7 +373,6 @@ cwdSetup = do
 
 cwdCompile :: SourcePos -> String -> MyParser ()
 cwdCompile pos dirName = do
-  posError pos $ "directory got: " ++ (show dirName)
   absDirName <- lift $
                case () of _
                              | dirName == "" -> getEnv "HOME"
@@ -381,10 +380,6 @@ cwdCompile pos dirName = do
                              | otherwise -> do
                                   path <- getEnv "HOME"
                                   return $ combine path dirName
-
-  -- posError pos $ "directory a: " ++ (show $ head dirName)
-  posError pos $ "directory b: " ++ (show pathSeparator)
-  posError pos $ "directory c: " ++ (show absDirName)
 
   f <- lift $ SD.doesDirectoryExist absDirName
   case f of
