@@ -2,6 +2,12 @@
 
 DESTDIR ?= ${HOME}/bin
 
+SOURCES += ConfigurationParser.hs
+SOURCES += Main.hs
+SOURCES += ProcessRunner.hs
+SOURCES += SendControl.hs
+SOURCES += TerminalUI.hs
+
 .PHONY: all
 all: conlecterm run
 

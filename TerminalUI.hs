@@ -17,6 +17,9 @@ import qualified ConfigurationParser as CP
 import qualified ProcessRunner as PR
 import qualified SendControl as SC
 
+initialTitle :: String
+initialTitle = "Conlecterm@"
+
 orientation :: CP.Orientation -> GTK.PositionType
 orientation CP.LeftTabs   = GTK.PosLeft
 orientation CP.RightTabs  = GTK.PosRight
@@ -41,7 +44,7 @@ run (orient, tabList, buttonList) sessionName sessionFileName = do
   GTK.notebookSetHomogeneousTabs notebook True
 
   GTK.windowSetDefaultSize toplevel 800 600
-  GTK.set toplevel [GTK.windowTitle GTK.:= "Terminal"]
+  GTK.set toplevel [GTK.windowTitle GTK.:= initialTitle]
 
   toplevel `GTK.containerAdd` notebook
   GTK.widgetShowAll toplevel
@@ -301,12 +304,12 @@ xpageChange window notebook page = do
   children <- GTK.containerGetChildren $ GTK.castToVBox $ fromJust vBox
 
   title <- case children of
-    [] -> return "Terminal"
+    [] -> return initialTitle
     (child:_) -> do
       GTK.widgetSetCanFocus child True
       GTK.widgetGrabFocus child
       text <- GTK.notebookGetTabLabelText notebook child
       case text of
-        Nothing -> return "Terminal"
-        Just title -> return title
+        Nothing -> return initialTitle
+        Just title -> return $ initialTitle ++ " - " ++ title
   GTK.set window [GTK.windowTitle GTK.:= title]
