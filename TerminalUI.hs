@@ -153,7 +153,7 @@ addButton table x y notebook name title autoStart dir commandList sendList runni
   return ()
 
 
--- add auto/manual stared panes
+-- add auto/manual started panes
 addPane :: GTK.Notebook ->  String -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
 addPane notebook name title autoStart dir commandList sendList running stopped = do
   vbox <- GTK.vBoxNew False 0
