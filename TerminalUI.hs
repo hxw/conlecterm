@@ -5,6 +5,7 @@ module TerminalUI where
 
 import Data.Maybe( fromJust )
 import Data.Foldable( foldlM )
+import Data.List( find )
 import Control.Monad.Trans( liftIO )
 import System.Process( ProcessHandle )
 import System.IO
@@ -19,6 +20,10 @@ import qualified SendControl as SC
 
 initialTitle :: String
 initialTitle = "Conlecterm@"
+
+-- list of possible icons from default theme
+iconNameList :: [String]
+iconNameList = ["utilities-terminal", "gnome-terminal", "xfce-terminal", "terminal"]
 
 orientation :: CP.Orientation -> GTK.PositionType
 orientation CP.LeftTabs   = GTK.PosLeft
@@ -35,6 +40,7 @@ orientationToText CP.BottomTabs = "bottom"
 run :: CP.SessionInfo -> String -> String -> IO ()
 run (orient, tabList, buttonList) sessionName sessionFileName = do
   GTK.initGUI
+
   toplevel <- GTK.windowNew
   notebook <- GTK.notebookNew
 
@@ -45,6 +51,24 @@ run (orient, tabList, buttonList) sessionName sessionFileName = do
 
   GTK.windowSetDefaultSize toplevel 800 600
   GTK.set toplevel [GTK.windowTitle GTK.:= initialTitle]
+
+  -- get the an icon from the default theme
+  theme <- GTK.iconThemeGetDefault
+
+  -- check if selection is available
+  availableIcons <-mapM (\iconName ->  do
+             exists <- GTK.iconThemeHasIcon theme iconName
+             return (iconName, exists)) iconNameList
+  -- putStrLn $ "icons = " ++ (show availableIcons)
+
+  -- if an icon is found assign it to toplevel window
+  let theIcon = find (\ (name, exists) -> exists) availableIcons
+  -- putStrLn $ "icon = " ++ (show theIcon)
+  case theIcon of
+    Nothing -> return ()
+    Just (iconName, _) ->  do
+      GTK.windowSetDefaultIconName iconName
+      GTK.windowSetIconName toplevel iconName
 
   toplevel `GTK.containerAdd` notebook
   GTK.widgetShowAll toplevel
