@@ -60,12 +60,15 @@ withNative socket run =
   where
     setup :: IO NativeAccess
     setup = do
-      plugWindow <-  GTK.socketGetPlugWindow socket
-      window <- GTK.drawableGetID plugWindow
-      let nativeWindow = GTK.fromNativeWindowId window
+      plugWindow <- GTK.socketGetPlugWindow socket
       display <- X.openDisplay ""
       let root = X.defaultRootWindow display
-      return (display, root, nativeWindow)
+      case plugWindow of
+              Nothing -> return (display, root, root)
+              Just aPlugWindow -> do
+                window <- GTK.drawableGetID aPlugWindow
+                let nativeWindow = GTK.fromNativeWindowId window
+                return (display, root, nativeWindow)
     final :: NativeAccess -> IO ()
     final (display, _root, _window) = do
       X.closeDisplay display
