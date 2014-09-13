@@ -61,7 +61,7 @@ Haskell packages:
 
 Ubuntu                       FreeBSD
 -------------------------    -------------------------
-libghc-gtk-dev               hs-gtk
+libghc-gtk-dev               hs-gtk2hs
 libghc-x11-dev               hs-X11
 libghc-parsec3-dev           hs-parsec
 libghc-hashtables-dev        hs-hashtables
