@@ -1,4 +1,4 @@
--- Copyright (c) 2012, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2015, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD see LICENSE.text
 
 module ProcessRunner where
@@ -15,9 +15,6 @@ type ProcRef = V.MVar ProcessHandle
 
 newProcRef :: IO ProcRef
 newProcRef = V.newEmptyMVar
-
---setProcRef :: ProcRef -> ProcessHandle -> IO ()
---setProcRef = V.putMVar
 
 
 -- run a command on a procref

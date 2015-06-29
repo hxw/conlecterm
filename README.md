@@ -12,7 +12,7 @@ can be defined each having the option of a different tab orientation.
 
 Tabs can be moved by draggng them to the desired position.
 
-The order of the tabs is saved when close button is clicked.
+The order of the tabs is saved in the session file when close button is clicked.
 
 # Configuration
 
@@ -28,12 +28,6 @@ the configuration file has three kinds of configuration elements
 
   Define the text that appears on the tab, the command to run, the
   initial directory.
-
-
-- Sessions
-
-  Name a group of panes that are opened together, a command-line
-  argument specifies the name.
 
 
 # Programs using XEmbed
@@ -59,12 +53,11 @@ The program is written in Haskell and requires GTK and X11
 
 Haskell packages:
 
-Ubuntu                       FreeBSD
--------------------------    -------------------------
-libghc-gtk-dev               hs-gtk2hs
-libghc-x11-dev               hs-X11
-libghc-parsec3-dev           hs-parsec
-libghc-hashtables-dev        hs-hashtables
+Operating System  Packages
+----------------  --------
+Ubuntu            libghc-gtk-dev libghc-x11-dev libghc-parsec3-dev libghc-hashtables-dev libghc-aeson-dev
+FreeBSD           hs-gtk2hs hs-X11 hs-parsec hs-hashtables hs-aeson
+
 
 Installing the above packages should bring in the right dependencies.
 
@@ -85,13 +78,10 @@ The configuration is loaded from a file in the above directory called
 `config.rc`.
 
 The program will not start if a valid directory is not found or the
-directory does not conatin a `config.rc`.
+directory does not contain a `config.rc`.
 
-Saved session files are called `session-SESSION.rc` where *SESSION* is
-replaced by the session name.  The format of this file is the same as
-a session block from the main configuratiopn file.  Session fils
-simple override the session in the main configuration, so to return to
-the initial session simple delete the asppropriate session file.
+Saved session files are called `SESSION.session` where *SESSION* is
+replaced by the session name.  The format of this file JSON.
 
 # Bugs
 

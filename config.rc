@@ -41,7 +41,7 @@ command gvim {
 
 # specify the command and otions that will run in one of the tabs
 
-pane p1 "Project 1" {
+pane "Project 1" {
     run urxvt
     start manual
     running colour(0xffff,0x1fff,0x1fff)
@@ -52,7 +52,7 @@ pane p1 "Project 1" {
 }
 
 # Note: no cwd so starts in directory where conlecterm was started
-pane p2 "Project 2" {
+pane "Project 2" {
     run urxvt
     start manual
     running colour(0x1fff,0xffff,0x1fff)
@@ -60,7 +60,7 @@ pane p2 "Project 2" {
     send-line "export PROJECT=p2"
 }
 
-pane p3 "Project 3" {
+pane "Project 3" {
     run urxvt
     start manual
     running colour(0x1fff,0x1fff,0xffff)
@@ -70,7 +70,7 @@ pane p3 "Project 3" {
 }
 
 # user
-pane p4 "Project 4" {
+pane "Project 4" {
     run urxvt
     start manual
     running colour(0x3fff,0xffff,0x1fff)
@@ -80,7 +80,7 @@ pane p4 "Project 4" {
 }
 
 # user relative
-pane p5 "Project 5" {
+pane "Project 5" {
     run urxvt
     start manual
     running colour(0x1fff,0xffff,0xffff)
@@ -89,70 +89,33 @@ pane p5 "Project 5" {
     send-line "pwd"
 }
 
-
-pane wk "Work" {
+pane "Work" {
     run urxvt
     start manual
     send-line "export CONF=test1"
     send-line "work-setup"
 }
 
-pane tmp-sh "shell" {
+pane "shell" {
     run urxvt
     start auto
     cwd "/tmp"
 }
 
-pane emacs "EMACS" {
+pane "EMACS" {
     run emacs
     start auto
     #cwd home
 }
 
-pane xterm "xterm-etc" {
+pane "xterm-etc" {
     run xterm
     start auto
     cwd "/etc"
 }
 
-pane gvim "Vi IMprove" {
+pane "Vi IMproved" {
     run gvim
     start auto
     #cwd home
-}
-
-
-# each program instance run one session
-# specified by the "-session <session-name>" command option
-# if this argument was missing the default session is loaded
-
-# the default session
-session default left {
-    #tab emacs
-    tab p1
-    tab p2
-    tab p3
-    tab p4
-    tab p5
-    tab * 3 p1
-    tab * 2 p2
-    button p1
-    button p2
-    button p3
-    button p4
-    button p5
-}
-
-# a named session
-session "work1" right {
-    tab * 4 wk
-    tab gvim
-    button tmp-sh
-}
-
-# a named session
-session "work2" top {
-    tab * 2 wk
-    tab p1
-    button tmp-sh
 }

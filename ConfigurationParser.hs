@@ -1,10 +1,14 @@
--- Copyright (c) 2012, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2015, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD see LICENSE.text
+
+{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
 module ConfigurationParser where
 
 import Data.Maybe( isNothing, fromMaybe, fromJust )
 import Data.Foldable( foldlM )
+import Data.List( sortBy )
+import Data.Text( pack, toLower )
 import Text.Parsec.Prim( ParsecT )
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
@@ -47,26 +51,15 @@ data PaneRecord =
              , paneStopped :: Maybe Colour
              } deriving Show
 
-data Orientation = LeftTabs | RightTabs | TopTabs | BottomTabs
-                 deriving Show
-
-data SessionRecord =
-  SessionRecord { sessionOrientation :: Orientation
-                , sessionButtons     :: [String]
-                , sessionTabs        :: [String]
-                } deriving Show
-
 
 type CommandHash = HT.BasicHashTable String CommandList
 type PaneHash = HT.BasicHashTable String PaneRecord
-type SessionHash = HT.BasicHashTable String SessionRecord
 
-type Hashes = (CommandHash, PaneHash, SessionHash)
+type Hashes = (CommandHash, PaneHash)
 
 data UserState =
   UserState { usCommands :: CommandHash
             , usPanes    :: PaneHash
-            , usSessions :: SessionHash
             , usErrorCount   :: Integer
             , usWarningCount :: Integer
             , usCurrentPaneStart   :: Maybe Bool
@@ -75,14 +68,11 @@ data UserState =
             , usCurrentPaneSend    :: SendList
             , usCurrentPaneRunning :: Maybe Colour
             , usCurrentPaneStopped :: Maybe Colour
-            , usCurrentSessionButtons :: [String]
-            , usCurrentSessionTabs    :: [String]
             }
 
-initUserState cmdHT paneHT sessionHT =
+initUserState cmdHT paneHT =
   UserState { usCommands = cmdHT
             , usPanes    = paneHT
-            , usSessions = sessionHT
             , usErrorCount   = 0
             , usWarningCount = 0
             , usCurrentPaneStart   = Nothing
@@ -91,8 +81,6 @@ initUserState cmdHT paneHT sessionHT =
             , usCurrentPaneSend    = []
             , usCurrentPaneRunning = Nothing
             , usCurrentPaneStopped = Nothing
-            , usCurrentSessionButtons = []
-            , usCurrentSessionTabs    = []
             }
 
 
@@ -113,25 +101,19 @@ lexer  = P.makeTokenParser
          , identStart     = letter
          , identLetter    = alphaNum <|> oneOf "_-"
          , reservedNames  = [ "auto"
-                            , "bottom"
-                            , "button"
                             , "color"
                             , "colour"
                             , "command"
                             , "cwd"
                             , "default"
-                            , "left"
                             , "manual"
                             , "pane"
-                            , "right"
                             , "run"
                             , "running"
                             , "start"
                             , "stopped"
                             , "send-line"
-                            , "tab"
                             , "tab-name"
-                            , "top"
                             , "window-id"
                             ]
          , opStart        = oneOf ":!#$%&*+./<=>?@\\^|-~"
@@ -223,7 +205,7 @@ compiledOK = do
 
 configParser :: MyParser Bool
 configParser = do
-  r <- many (commandParser <|> paneParser <|> sessionParser)
+  r <- many (commandParser <|> paneParser)
   e <- compiledOK
   return e
 
@@ -273,14 +255,14 @@ commandItem =
 -- -----------
 
 paneLookup :: String -> MyParser (Maybe PaneRecord)
-paneLookup name = do
+paneLookup title = do
   s <- getState
   let UserState { usPanes = hPane } = s
-  lift $ HT.lookup hPane name
+  lift $ HT.lookup hPane title
 
 
 paneSetup :: String -> MyParser SourcePos
-paneSetup name = do
+paneSetup title = do
   blockStartPos <- getPosition
   s <- getState
   let sNew = s { usCurrentPaneStart = Nothing
@@ -292,14 +274,14 @@ paneSetup name = do
                }
   setState sNew
 
-  l <- paneLookup name
-  dupDef blockStartPos l name
+  l <- paneLookup title
+  dupDef blockStartPos l title
   return blockStartPos
 
 
-paneCompile :: SourcePos -> String -> String -> MyParser ()
-paneCompile pos name title = do
-  l <- paneLookup name
+paneCompile :: SourcePos -> String -> MyParser ()
+paneCompile pos title = do
+  l <- paneLookup title
   case l of
     Nothing -> do
       s <- getState
@@ -321,7 +303,7 @@ paneCompile pos name title = do
                             , paneStopped = stopped
                             }
 
-      lift $ HT.insert hPane name pane
+      lift $ HT.insert hPane title pane
 
     Just _  -> do
       return ()
@@ -330,13 +312,11 @@ paneCompile pos name title = do
 paneParser :: MyParser ()
 paneParser = do
   reserved "pane"
-  name <- identifier
-  state <- paneSetup name
-
   title <- stringLiteral
+  state <- paneSetup title
   cmds <- braces $ many paneItem
 
-  paneCompile state name title
+  paneCompile state title
 
 
 runSetup :: MyParser SourcePos
@@ -505,160 +485,6 @@ colourItem = do
       return $ GTK.Color (fromIntegral red) (fromIntegral green) (fromIntegral blue)
 
 
--- session blocks
--- --------------
-
-sessionLookup :: String -> MyParser (Maybe SessionRecord)
-sessionLookup name = do
-  s <- getState
-  let UserState { usSessions = hSession } = s
-  lift $ HT.lookup hSession name
-
-
-sessionSetup :: String -> MyParser SourcePos
-sessionSetup name = do
-  --lift $ putStrLn $ "session = " ++ name
-  blockStartPos <- getPosition -- in case run is missing
-  s <- getState
-  let sNew = s { usCurrentSessionButtons = []
-               , usCurrentSessionTabs = []
-               }
-  setState sNew
-
-  l <- sessionLookup name
-  --dupDef blockStartPos l name
-  return blockStartPos
-
-
-sessionCompile :: SourcePos -> String -> Orientation -> MyParser ()
-sessionCompile pos name orientation = do
-  --l <- sessionLookup name
-  --dupDef pos l name
-  --case l of
-  --  Nothing -> do
-      s <- getState
-      let UserState { usSessions = hSession
-                    , usCurrentSessionButtons = buttons
-                    , usCurrentSessionTabs = tabs
-                    } = s
-
-      let session = SessionRecord { sessionOrientation = orientation
-                                  , sessionTabs        = tabs
-                                  , sessionButtons     = buttons
-                            }
-
-      lift $ HT.insert hSession name session
-
-  --  Just _  -> do
-  --    return ()
-
-
-sessionParser :: MyParser ()
-sessionParser = do
-  reserved "session"
-  name <- sessionName
-  state <- sessionSetup name
-  orient <- sessionOrientationParser
-  cmds <- braces $ many sessionItem
-  sessionCompile state name orient
-
-
-sessionName :: MyParser String
-sessionName =
-    do{ reserved "default"
-      ; return "default"
-      }
-  <|>  do{ n <- identifier
-      ; return n
-      }
-  <|>  do{ n <- stringLiteral
-      ; return n
-      }
-  <?> "session name"
-
-
-sessionOrientationParser :: MyParser Orientation
-sessionOrientationParser =
-    do{ reserved "left"
-      ; return LeftTabs
-      }
-  <|>  do{  reserved "right"
-      ; return RightTabs
-      }
-  <|>  do{  reserved "top"
-      ; return TopTabs
-      }
-  <|>  do{  reserved "bottom"
-      ; return BottomTabs
-      }
-  <|> return LeftTabs
---  <?> "session orientation"
-
-
-sessionItemSetup :: MyParser SourcePos
-sessionItemSetup = do
-  blockStartPos <- getPosition
-  return blockStartPos
-
-
-buttonCompile :: SourcePos -> String -> MyParser ()
-buttonCompile pos name = do
-  l <- paneLookup name
-  notDef pos l name
-  case l of
-    Nothing -> return ()
-    Just _  -> do
-      s <- getState
-      let UserState { usCurrentSessionButtons = bList } = s
-      let sNew = s { usCurrentSessionButtons = bList ++ [name] }
-      setState sNew
-
-
-tabCompile :: SourcePos -> (Int, String) -> MyParser ()
-tabCompile pos (count, name) = do
-  l <- paneLookup name
-  notDef pos l name
-  case l of
-    Nothing -> return ()
-    Just _  -> do
-      s <- getState
-      let UserState { usCurrentSessionTabs = bList } = s
-      let sNew = s { usCurrentSessionTabs = bList ++ (replicate count name) }
-      setState sNew
-
-
-sessionItem :: MyParser ()
-sessionItem =
-    do{ reserved "tab"
-      ; state <- sessionItemSetup
-      ; t <- tabItem
-      ; tabCompile state t
-      }
-  <|>  do{ reserved "button"
-         ; state <- sessionItemSetup
-         ; b <- identifier
-         ; buttonCompile state b
-      }
-  <?> "session item"
-
-
-tabItem :: MyParser (Int, String)
-tabItem =
-    do{
-      ; reservedOp "*"
-      ; n <- natural
-      ; case n < 0 of
-        True -> printError "tab cont must be >= 1"
-        False -> return ()
-      ; t <- identifier
-      ; return $ (fromIntegral n, t)
-      }
-  <|>  do{ t <- identifier
-      ; return $ (1, t)
-      }
-  <?> "tab item"
-
-
 -- parser setup and run
 -- --------------------
 
@@ -669,9 +495,9 @@ tabItem =
 
 --run :: Show a => MyParser a -> String -> IO ()
 run :: MyParser Bool -> Hashes -> String -> String -> IO (Maybe Hashes)
-run p (hashCmd, hashPane, hashSession) fileName input = do
+run p (hashCmd, hashPane) fileName input = do
 
-  let initialState = initUserState hashCmd hashPane hashSession
+  let initialState = initUserState hashCmd hashPane
 
   result <- N.runParserT p initialState fileName input
   --case (N.runParserT p initialState fileName input) of
@@ -682,7 +508,7 @@ run p (hashCmd, hashPane, hashSession) fileName input = do
       return Nothing
     Right compiledOK -> do
       if compiledOK
-        then return $ Just (hashCmd, hashPane, hashSession)
+        then return $ Just (hashCmd, hashPane)
         else return Nothing
 
 
@@ -703,8 +529,7 @@ compile :: [String] -> IO (Maybe Hashes)
 compile configFileNames = do
   hashCmd <- HT.new :: IO CommandHash
   hashPane <- HT.new :: IO PaneHash
-  hashSession <- HT.new :: IO SessionHash
-  let hashes = (hashCmd, hashPane, hashSession)
+  let hashes = (hashCmd, hashPane)
   result <- foldlM compileOne hashes configFileNames
   return $ Just result
 
@@ -730,45 +555,39 @@ compileOne hashes configFileName = do
 -}
 
 
--- simple tuple type for returning the expandex session
+-- simple tuple type for returning the expanded session
+type PaneInfo = (String, Bool, Maybe String, CommandList, SendList, Maybe Colour, Maybe Colour)
 
-type TabInfo = (String, String, Bool, Maybe String, CommandList, SendList, Maybe Colour, Maybe Colour)
 
-type TabInfoList = [TabInfo]
-type ButtonInfoList = [TabInfo]
+-- get a list of panes from a list of tab names
+expandPanes :: Hashes -> [String] -> IO [PaneInfo]
+expandPanes (hashCmd, hashPane) tabs = do
+  mapM expandPane tabs
+      where
+        expandPane :: String -> IO PaneInfo
+        expandPane pane = do
+          p <- HT.lookup hashPane pane
+          let PaneRecord { paneTitle = title
+                         , paneAuto  = start
+                         , paneDir   = dir
+                         , paneRun   = run
+                         , paneSend  = send
+                         , paneRunning = running
+                         , paneStopped = stopped
+                         } = fromJust p
+          command <- HT.lookup hashCmd run
+          return $ (title, start, dir, fromJust command, send, running, stopped)
 
-type SessionInfo = (Orientation, TabInfoList, ButtonInfoList)
-
--- get orientation, tabs and buttons
--- tabs and buttons have the same structure
-expandSession :: Hashes -> String -> IO (Maybe SessionInfo)
-expandSession (hashCmd, hashPane, hashSession) name = do
-  s <- HT.lookup hashSession name
-  case s of
-    Nothing -> return Nothing
-    Just session -> do
-      -- all maybe items must exist since the parse above checked
-      -- so use fromJust no need for case
-      let SessionRecord { sessionOrientation = orientation
-                        , sessionButtons     = buttons
-                        , sessionTabs        = tabs } = session
-      tabList <- mapM expandPane tabs
-      buttonList <- mapM expandPane buttons
-      return $ Just (orientation, tabList, buttonList)
+-- get a sorted list of all the tab names
+-- (case insensitive sort)
+sortedTabs :: Hashes -> IO [PaneInfo]
+sortedTabs (hashCmd, hashPane) = do
+    l <- HT.toList hashPane
+    let (titles, _) = unzip l
+    expandPanes (hashCmd, hashPane) $ sortBy (\a b -> (lc a) `compare` (lc b)) titles
         where
-          expandPane :: String -> IO TabInfo
-          expandPane pane = do
-            p <- HT.lookup hashPane pane
-            let PaneRecord { paneTitle = title
-                           , paneAuto  = start
-                           , paneDir   = dir
-                           , paneRun   = run
-                           , paneSend  = send
-                           , paneRunning = running
-                           , paneStopped = stopped
-                           } = fromJust p
-            command <- HT.lookup hashCmd run
-            return $ (pane, title, start, dir, fromJust command, send, running, stopped)
+          lc s = toLower $ pack s
+
 
 -- take a command list and convert to a list of strings
 -- expanding the integer value provided

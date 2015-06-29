@@ -1,5 +1,7 @@
--- Copyright (c) 2012, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2015, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD see LICENSE.text
+
+{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
 module Main where
 
@@ -13,14 +15,15 @@ import Control.Monad( filterM )
 import System.IO.Error( isDoesNotExistErrorType, ioeGetErrorType)
 import System.Posix.Files ( fileExist, isDirectory, getFileStatus )
 
+import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
 import qualified TerminalUI as TU
 
 
 --constants
-currentVersion = "Version 2"
-defaultSession = "default"
+currentVersion = "Version 3"
 
+defaultSessionFile = "default.session"
 configurationFile = "config.rc"
 
 
@@ -42,10 +45,10 @@ main = do
     then usage ["too many arguments\n"]
     else return ()
 
-  let startSession = if length arguments == 0 then defaultSession else (arguments !! 0)
+  let startSession = if length arguments == 0 then defaultSessionFile else (arguments !! 0)
 
   let configFile = combine configDirectory configurationFile
-  let sessionFile = combine configDirectory $ "session-" ++ startSession ++ ".rc"
+  let sessionFile = combine configDirectory $ startSession
   if verbose
     then do
       hPutStrLn stderr $ "requested session = " ++ (show session)
@@ -63,17 +66,12 @@ main = do
     False -> usage ["missing configuration file: ", configFile]
     True -> return ()
 
-  mh <- CP.compile [configFile, sessionFile]
-  case mh of
-    Nothing ->
-      exitFailure
-    Just h -> do
-      session <- CP.expandSession h startSession
-      case session of
-        Nothing ->
-          usage $ ["unknown session: ", show startSession]
-        Just s ->
-          TU.run s startSession sessionFile
+  haveSession <- fileExist sessionFile
+  case haveConfig of
+    False -> usage ["missing session file: ", sessionFile]
+    True -> return ()
+
+  TU.run configFile sessionFile
   exitSuccess
 
 
@@ -141,7 +139,7 @@ options = [ Option ['h'] ["help"]    (NoArg showUsage)           "this message"
           , Option ['c'] ["config"]  (ReqArg setConfig "DIR")    "configuration directory"
 --          , Option ['c'] ["config"]  (ReqArg readInput "FILE")   "configuration file"
 --          , Option ['o'] ["output"]  (ReqArg writeOutput "FILE") "output file to write"
-          , Option ['s'] ["session"] (ReqArg setSession "NAME")  "session name"
+          , Option ['s'] ["session"] (ReqArg setSession "FILE")  "session file"
           ]
 
 

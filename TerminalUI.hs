@@ -1,4 +1,4 @@
--- Copyright (c) 2012, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2015, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD see LICENSE.text
 
 module TerminalUI where
@@ -14,6 +14,7 @@ import qualified Graphics.UI.Gtk as GTK
 
 import qualified Text.Read as TR
 
+import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
 import qualified ProcessRunner as PR
 import qualified SendControl as SC
@@ -25,20 +26,33 @@ initialTitle = "Conlecterm@"
 iconNameList :: [String]
 iconNameList = ["utilities-terminal", "gnome-terminal", "xfce-terminal", "terminal"]
 
-orientation :: CP.Orientation -> GTK.PositionType
-orientation CP.LeftTabs   = GTK.PosLeft
-orientation CP.RightTabs  = GTK.PosRight
-orientation CP.TopTabs    = GTK.PosTop
-orientation CP.BottomTabs = GTK.PosBottom
+orientation :: SP.Orientation -> GTK.PositionType
+orientation SP.LeftTabs   = GTK.PosLeft
+orientation SP.RightTabs  = GTK.PosRight
+orientation SP.TopTabs    = GTK.PosTop
+orientation SP.BottomTabs = GTK.PosBottom
 
-orientationToText :: CP.Orientation -> String
-orientationToText CP.LeftTabs   = "left"
-orientationToText CP.RightTabs  = "right"
-orientationToText CP.TopTabs    = "top"
-orientationToText CP.BottomTabs = "bottom"
+--compileConfigs :: String -> String -> IO ()
+compileConfigs configFileName sessionFileName = do
+  mh <- CP.compile [configFileName]
+  case mh of
+    Nothing -> return Nothing
+    Just h -> do
+      session <- SP.readSession sessionFileName
+      case session of
+        Nothing -> return Nothing
+        Just s -> do
+               let SP.Session name orientation tabs = s
+               tabList <- CP.expandPanes h tabs
+               return $ Just (name, orientation, tabList, h)
 
-run :: CP.SessionInfo -> String -> String -> IO ()
-run (orient, tabList, buttonList) sessionName sessionFileName = do
+
+run :: String -> String -> IO ()
+run configFileName sessionFileName = do
+
+  r <- compileConfigs configFileName sessionFileName
+  let (sessionName, orient, tabList, h) = fromJust r
+
   GTK.initGUI
 
   toplevel <- GTK.windowNew
@@ -73,26 +87,19 @@ run (orient, tabList, buttonList) sessionName sessionFileName = do
   toplevel `GTK.containerAdd` notebook
   GTK.widgetShowAll toplevel
 
-  GTK.on notebook GTK.switchPage $ pageChange toplevel notebook
+  -- set up page switcher
+  table <- GTK.tableNew 4 4 True
+  GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName
   GTK.widgetSetCanFocus notebook False
 
   -- create the buttons page
-  table <- GTK.tableNew 4 4 True
   GTK.widgetShowAll table
   page <- GTK.notebookAppendPage notebook table "+NEW"
 
   -- create all the initial table
   mapM_ (\tab ->  do
-            let (name, title, start, dir, command, sendList, running, stopped) = tab
-            addPane notebook name title start dir command sendList running stopped) tabList
-
-  -- create buttons
-  foldlM (\(x, y) button ->  do
-            let (name, title, start, dir, command, sendList, running, stopped) = button
-            addButton table x y notebook name title start dir command sendList running stopped
-            let x1 = x + 1
-            if x > 4 then return (0, y + 1) else return (x1, y)
-         ) (0, 0) buttonList
+            let (title, start, dir, command, sendList, running, stopped) = tab
+            addPane notebook title start dir command sendList running stopped) tabList
 
   -- link up the close button
   GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit sessionName sessionFileName orient notebook
@@ -101,10 +108,34 @@ run (orient, tabList, buttonList) sessionName sessionFileName = do
   GTK.mainGUI
 
 
+-- compile buttons from current configuration
+
+createButtons :: String -> GTK.Table -> GTK.Notebook -> IO ()
+createButtons configFileName table notebook = do
+
+  -- erase old contents
+  contents <- GTK.containerGetChildren table
+  mapM_ (\item -> GTK.containerRemove table item) contents
+
+  -- fetch possible updated configuration
+  mh <- CP.compile [configFileName]
+  let h = fromJust mh
+
+  allTabs <- CP.sortedTabs h
+  foldlM (\(x, y) item ->  do
+            let (title, start, dir, command, sendList, running, stopped) = item
+            addButton table x y notebook title start dir command sendList running stopped
+            let x1 = x + 1
+            if x > 4 then return (0, y + 1) else return (x1, y)
+         ) (0, 0) allTabs
+  GTK.widgetShowAll table
+  return ()
+
+
 -- do not allow exit if still some tabs are open
-checkExit :: String ->  String -> CP.Orientation -> GTK.Notebook -> IO Bool
+checkExit :: String ->  String -> SP.Orientation -> GTK.Notebook -> IO Bool
 checkExit sessionName sessionFileName orient notebook = do
-  withFile sessionFileName WriteMode saveSession
+  saveSession
   active <- PR.activeProcs
   let continue = active > 0
   if continue then exitNotice else GTK.mainQuit
@@ -112,36 +143,19 @@ checkExit sessionName sessionFileName orient notebook = do
 
   where
 
-    saveSession :: Handle -> IO ()
-    saveSession handle = do
-      hPutStrLn handle $ "session \"" ++ sessionName ++ "\" " ++ (orientationToText orient) ++ " {"
+    saveSession :: IO ()
+    saveSession = do
       pageCount <- GTK.notebookGetNPages notebook
-      hPutStrLn handle $ "    # total tabs = " ++ (show pageCount)
-      -- output current tabs
-      let oneTab i = do
+      tabs <- mapM oneTab [1 .. pageCount - 1]
+      let s = SP.Session sessionName orient tabs
+      SP.writeSession s sessionFileName
+        where
+          oneTab i = do
             p <- GTK.notebookGetNthPage notebook i
             case p of
-              Nothing -> return ()
-              Just page -> do
-                name <- GTK.widgetGetName page
-                hPutStrLn handle $ "    tab " ++ name
-        in mapM_ oneTab [1 .. pageCount - 1]
+              Nothing -> return ""
+              Just page -> GTK.widgetGetName page
 
-      -- output current buttons
-      buttonsPage <- GTK.notebookGetNthPage notebook 0
-      case buttonsPage of
-        Nothing -> return ()
-        Just t -> do
-          let table = GTK.castToTable t
-          c <- GTK.containerGetChildren table
-          -- the list c appears to be reversed!
-          let pp w = do
-                let button = GTK.castToButton w
-                name <- GTK.widgetGetName button
-                hPutStrLn handle $ "    button " ++ name
-            in mapM_ pp $ reverse c
-
-      hPutStrLn handle $ "}"
 
 -- dialog warning about acive tabs
 exitNotice :: IO ()
@@ -152,8 +166,8 @@ exitNotice = do
 
 
 -- add buttons to the button menu
-addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
-addButton table x y notebook name title autoStart dir commandList sendList running stopped = do
+addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
+addButton table x y notebook title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
 
   case running of
@@ -167,10 +181,10 @@ addButton table x y notebook name title autoStart dir commandList sendList runni
   --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 16383)
   --GTK.widgetModifyBg button GTK.StateActive (GTK.Color 0 0 0)
 
-  GTK.widgetSetName button name
+  GTK.widgetSetName button title
   GTK.containerAdd button label
 
-  GTK.on button GTK.buttonActivated $ (addPane notebook name title autoStart dir commandList sendList running stopped >> return ())
+  GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
 
   GTK.widgetShowAll button
   GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
@@ -178,11 +192,11 @@ addButton table x y notebook name title autoStart dir commandList sendList runni
 
 
 -- add auto/manual started panes
-addPane :: GTK.Notebook ->  String -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
-addPane notebook name title autoStart dir commandList sendList running stopped = do
+addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
+addPane notebook title autoStart dir commandList sendList running stopped = do
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
-  GTK.widgetSetName vbox name
+  GTK.widgetSetName vbox title
 
   GTK.widgetShowAll vbox
 
@@ -319,9 +333,11 @@ setTabTextColour _ _ = return ()
 
 
 -- change the main title to be the tab name
-pageChange :: GTK.Window -> GTK.Notebook -> Int -> IO ()
-pageChange window notebook page = do
-  if page == 0 then return () else xpageChange window notebook page
+pageChange :: GTK.Window -> GTK.Notebook -> GTK.Table -> String -> Int -> IO ()
+pageChange window notebook table configFileName page = do
+  if page == 0
+    then createButtons configFileName table notebook
+    else xpageChange window notebook page
 
 xpageChange window notebook page = do
   vBox <- GTK.notebookGetNthPage notebook page
