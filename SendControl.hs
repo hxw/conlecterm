@@ -24,6 +24,9 @@ eol :: X.KeySym
 eol = X.xK_Return
 --eol = X.xK_Linefeed
 
+-- delay value
+sendDelayMicroseconds :: Int
+sendDelayMicroseconds = 5000
 
 -- group together the low level X related items
 -- needed to send a key event
@@ -88,7 +91,7 @@ sendKey (display, root, window) shift keysym = do
     XE.setEventType ke X.keyRelease
     X.sendEvent display window True X.keyReleaseMask ke
   X.flush display  -- ensure the key is sent immediately
-  threadDelay 100 -- must delay otherwise the event queue fails
+  threadDelay sendDelayMicroseconds -- must delay otherwise the event queue fails
 
 {-
   mapM_ (\n -> do
