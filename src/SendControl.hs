@@ -4,8 +4,8 @@
 module SendControl where
 
 --import Data.Maybe
-import Foreign.C
-import Data.Char( isUpper )
+--import Foreign.C
+--import Data.Char( isUpper )
 import qualified Graphics.X11 as X
 import qualified Graphics.X11.Xlib.Extras as XE
 import qualified Graphics.UI.Gtk as GTK

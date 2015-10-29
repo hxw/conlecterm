@@ -1,0 +1,59 @@
+name: Conlecterm
+version: 1.0
+synopsis: A multi-tab terminal framwork
+description:
+            Display multiple terminals (rxvt, xterm) in their own tabs.
+            .
+            Other embeddable programs may also work (emacs, vim).
+
+copyright: 2014-2015 Christopher Hall
+license: BSD3
+license-file: LICENSE.text
+author: Christopher Hall <hsw@ms2.hinet.net>
+maintainer: hsw@ms2.hinet.net
+homepage: https://github.com/hxw/conlecterm
+bug-reports: https://github.com/hxw/conlecterm
+
+category: Graphics
+cabal-version: >=1.10
+
+build-type: Simple
+
+-- source-repository head
+--     type:     git
+--     location: https://github.com/hxw/conlecterm.git
+
+extra-source-files:
+                   README.md
+                   LICENSE.text
+                   conlecterm.desktop
+
+Executable Conlecterm
+  main-is: Main.hs
+  build-tools: alex, happy
+               -- gtk2hs-buildtools -- not understood by cabal
+  build-depends: base >= 3 && < 5,
+                 text,
+                 mtl,
+                 hashtables,
+                 bytestring,
+                 directory,
+                 parsec,
+                 unix,
+                 process,
+                 filepath,
+                 aeson,
+                 gtk,
+                 X11
+
+
+
+  --               lifted-base,
+  --               transformers, resourcet,
+  --               system-filepath,
+  --               unix,
+  --               imagemagick
+  hs-source-dirs: src
+  ghc-options: -Wall -fwarn-tabs
+  default-language: Haskell2010
+  --default-language: Haskell98

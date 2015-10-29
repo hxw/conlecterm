@@ -63,6 +63,18 @@ Installing the above packages should bring in the right dependencies.
 
 A simple Makefile is provided.
 
+# Building with cabal
+
+~~~
+cabal sandbox init
+cabal update
+cabal install alex
+cabal install happy
+cabal install gtk2hs-buildtools
+cabal install --dependencies-only
+cabal build
+~~~
+
 # Configuration
 
 Configuration directory is searched from:

@@ -9,7 +9,13 @@ SOURCES += SendControl.hs
 SOURCES += TerminalUI.hs
 
 .PHONY: all
-all: conlecterm run
+#all: conlecterm run
+all:
+	cabal build
+
+.PHONY: deps
+deps:
+	cabal install --dependencies-only
 
 .PHONY: install
 install: conlecterm
