@@ -1,41 +1,12 @@
 # Makefile
 
-DESTDIR ?= ${HOME}/bin
+# basic settings
+PROGRAM = Conlecterm
 
-SOURCES += ConfigurationParser.hs
-SOURCES += Main.hs
-SOURCES += ProcessRunner.hs
-SOURCES += SendControl.hs
-SOURCES += TerminalUI.hs
+# need to include gtk2hs
+USE_GTK = YES
 
-.PHONY: all
-#all: conlecterm run
-all:
-	cabal build
+# a default agument list for run - averride as required
+PROG_ARGS ?= -c .
 
-.PHONY: deps
-deps:
-	cabal install --dependencies-only
-
-.PHONY: install
-install: conlecterm
-	install conlecterm "${DESTDIR}"
-
-SOURCES = Main.hs
-SOURCES += ConfigurationParser.hs
-SOURCES += ProcessRunner.hs
-SOURCES += SendControl.hs
-SOURCES += TerminalUI.hs
-
-conlecterm: ${SOURCES}
-	ghc -o "$@" --make Main.hs
-#	ghc -o "$@" -threaded --make Main.hs
-
-.PHONY: run
-run: conlecterm
-	./conlecterm --verbose --config=.
-
-
-.PHONY: clean
-clean:
-	rm -f conlecterm *.o *.hi session-*.rc
+.include "Mk/haskell.mk"

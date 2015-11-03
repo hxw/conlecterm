@@ -23,7 +23,8 @@ import System.FilePath( combine, pathSeparator )
 import System.Environment( getEnv )
 
 import qualified Data.HashTable.IO as HT
-import Control.Monad.Trans (liftIO, lift)
+--import Control.Monad.Trans (liftIO, lift)
+import Control.Monad.Trans (lift)
 import qualified Text.Printf as TP
 import qualified System.Directory as SD
 
@@ -70,6 +71,7 @@ data UserState =
             , usCurrentPaneStopped :: Maybe Colour
             }
 
+initUserState :: CommandHash -> PaneHash -> UserState
 initUserState cmdHT paneHT =
   UserState { usCommands = cmdHT
             , usPanes    = paneHT
@@ -123,18 +125,43 @@ lexer  = P.makeTokenParser
          }
 
 
+whiteSpace   :: ParsecT String UserState IO ()
 whiteSpace    = P.whiteSpace lexer
+
+lexeme       :: ParsecT String UserState IO a -> ParsecT String UserState IO a
 lexeme        = P.lexeme lexer
+
+symbol       :: String -> ParsecT String UserState IO String
 symbol        = P.symbol lexer
+
+stringLiteral :: ParsecT String UserState IO String
 stringLiteral = P.stringLiteral lexer
+
+natural      :: ParsecT String UserState IO Integer
 natural       = P.natural lexer
+
+hexadecimal   :: ParsecT String UserState IO Integer
 hexadecimal   = P.hexadecimal lexer
+
+parens       :: ParsecT String UserState IO a -> ParsecT String UserState IO a
 parens        = P.parens lexer
+
+braces       :: ParsecT String UserState IO a -> ParsecT String UserState IO a
 braces        = P.braces lexer
+
+comma        :: ParsecT String UserState IO String
 comma         = P.comma lexer
+
+semi         :: ParsecT String UserState IO String
 semi          = P.semi lexer
+
+identifier   :: ParsecT String UserState IO String
 identifier    = P.identifier lexer
+
+reserved     :: String -> ParsecT String UserState IO ()
 reserved      = P.reserved lexer
+
+reservedOp   :: String -> ParsecT String UserState IO ()
 reservedOp    = P.reservedOp lexer
 
 
@@ -158,6 +185,7 @@ warning :: String ->  MyParser ()
 warning message = do
   pos <- getPosition
   posWarning pos message
+
 posWarning :: SourcePos -> String ->  MyParser ()
 posWarning pos message = do
   let l = show $ sourceLine pos
@@ -165,8 +193,8 @@ posWarning pos message = do
   let n = show $ sourceName pos  -- adds " around string
   lift $ putStrLn $ "warning at " ++ n ++ " (line " ++ l ++ ", column " ++ c ++ "):\n" ++ message
   s <- getState
-  let UserState { usWarningCount = n } = s
-  let sNew = s { usWarningCount = n + 1 }
+  let UserState { usWarningCount = warnCount } = s
+  let sNew = s { usWarningCount = warnCount + 1 }
   setState sNew
 
 
@@ -181,8 +209,8 @@ posError pos message = do
   let n = show $ sourceName pos  -- adds " around string
   lift $ putStrLn $ "error at " ++ n ++ " (line " ++ l ++ ", column " ++ c ++ "):\n" ++ message
   s <- getState
-  let UserState { usErrorCount = n } = s
-  let sNew = s { usErrorCount = n + 1 }
+  let UserState { usErrorCount = errCount } = s
+  let sNew = s { usErrorCount = errCount + 1 }
   setState sNew
 
 
@@ -205,7 +233,7 @@ compiledOK = do
 
 configParser :: MyParser Bool
 configParser = do
-  r <- many (commandParser <|> paneParser)
+  _r <- many (commandParser <|> paneParser)
   e <- compiledOK
   return e
 
@@ -280,7 +308,7 @@ paneSetup title = do
 
 
 paneCompile :: SourcePos -> String -> MyParser ()
-paneCompile pos title = do
+paneCompile _pos title = do
   l <- paneLookup title
   case l of
     Nothing -> do
@@ -288,7 +316,7 @@ paneCompile pos title = do
       let UserState { usPanes = hPane
                     , usCurrentPaneStart = start
                     , usCurrentPaneDir   = dir
-                    , usCurrentPaneRun   = run
+                    , usCurrentPaneRun   = pRun
                     , usCurrentPaneSend  = send
                     , usCurrentPaneRunning = running
                     , usCurrentPaneStopped = stopped
@@ -296,7 +324,7 @@ paneCompile pos title = do
 
       let pane = PaneRecord { paneTitle = title
                             , paneAuto  = fromMaybe True start
-                            , paneRun   = fromJust run
+                            , paneRun   = fromJust pRun
                             , paneDir   = dir
                             , paneSend  = send
                             , paneRunning = running
@@ -314,7 +342,7 @@ paneParser = do
   reserved "pane"
   title <- stringLiteral
   state <- paneSetup title
-  cmds <- braces $ many paneItem
+  _cmds <- braces $ many paneItem
 
   paneCompile state title
 
@@ -381,7 +409,7 @@ startSetup = do
 
 
 startCompile :: SourcePos -> Bool -> MyParser ()
-startCompile pos flag = do
+startCompile _pos flag = do
   s <- getState
   let sNew = s { usCurrentPaneStart = Just flag }
   setState sNew
@@ -394,7 +422,7 @@ sendSetup = do
 
 
 sendCompile :: SourcePos -> String -> MyParser ()
-sendCompile pos str = do
+sendCompile _pos str = do
   s <- getState
   let UserState { usCurrentPaneSend = strList } = s
   let sNew = s { usCurrentPaneSend = strList ++ [str] }
@@ -412,7 +440,7 @@ runningSetup = do
 
 
 runningCompile :: SourcePos -> Colour -> MyParser ()
-runningCompile pos colour = do
+runningCompile _pos colour = do
   s <- getState
   let sNew = s { usCurrentPaneRunning = Just colour }
   setState sNew
@@ -429,7 +457,7 @@ stoppedSetup = do
 
 
 stoppedCompile :: SourcePos -> Colour -> MyParser ()
-stoppedCompile pos colour = do
+stoppedCompile _pos colour = do
   s <- getState
   let sNew = s { usCurrentPaneStopped = Just colour }
   setState sNew
@@ -478,9 +506,9 @@ colourItem = do
   where
     triplet = do
       red <- natural
-      comma
+      _ <- comma
       green <- natural
-      comma
+      _ <- comma
       blue <- natural
       return $ GTK.Color (fromIntegral red) (fromIntegral green) (fromIntegral blue)
 
@@ -506,8 +534,8 @@ run p (hashCmd, hashPane) fileName input = do
       putStr "parse error at "
       print err
       return Nothing
-    Right compiledOK -> do
-      if compiledOK
+    Right cOK -> do
+      if cOK
         then return $ Just (hashCmd, hashPane)
         else return Nothing
 
@@ -570,12 +598,12 @@ expandPanes (hashCmd, hashPane) tabs = do
           let PaneRecord { paneTitle = title
                          , paneAuto  = start
                          , paneDir   = dir
-                         , paneRun   = run
+                         , paneRun   = pRun
                          , paneSend  = send
                          , paneRunning = running
                          , paneStopped = stopped
                          } = fromJust p
-          command <- HT.lookup hashCmd run
+          command <- HT.lookup hashCmd pRun
           return $ (title, start, dir, fromJust command, send, running, stopped)
 
 -- get a sorted list of all the tab names
@@ -596,7 +624,8 @@ expandCommand :: CommandList -> Integer -> String -> [String]
 expandCommand commandList int str =
   map (expandArg int str) commandList
 
-
-expandArg int str (Argument s) = s
-expandArg int str (Title    s) = TP.printf s str
-expandArg int str (Window   s) = TP.printf s int
+expandArg :: (TP.PrintfArg t, TP.PrintfArg t1) =>
+                   t1 -> t -> CommandItem -> String
+expandArg _int _str (Argument s) = s
+expandArg _int  str (Title    s) = TP.printf s str
+expandArg  int _str (Window   s) = TP.printf s int

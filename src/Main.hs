@@ -5,25 +5,27 @@
 
 module Main where
 
-import System.Environment( getArgs, getProgName, getEnv )
+import System.Environment (getArgs, getProgName, getEnv)
 import System.Console.GetOpt
-import System.Exit( exitSuccess, exitFailure )
+import System.Exit (exitSuccess, exitFailure)
 import System.IO
-import System.FilePath( combine, pathSeparator )
-import Control.Exception( catchJust )
-import Control.Monad( filterM )
-import System.IO.Error( isDoesNotExistErrorType, ioeGetErrorType)
-import System.Posix.Files ( fileExist, isDirectory, getFileStatus )
+import System.FilePath (combine)
+import Control.Exception (catchJust)
+import Control.Monad (filterM)
+import System.IO.Error (isDoesNotExistErrorType, ioeGetErrorType)
+import System.Posix.Files  (fileExist, isDirectory, getFileStatus)
 
-import qualified SessionParser as SP
-import qualified ConfigurationParser as CP
 import qualified TerminalUI as TU
 
 
 --constants
+currentVersion :: String
 currentVersion = "Version 3"
 
+defaultSessionFile :: String
 defaultSessionFile = "default.session"
+
+configurationFile :: String
 configurationFile = "config.rc"
 
 
@@ -67,7 +69,7 @@ main = do
     True -> return ()
 
   haveSession <- fileExist sessionFile
-  case haveConfig of
+  case haveSession of
     False -> usage ["missing session file: ", sessionFile]
     True -> return ()
 
@@ -101,17 +103,17 @@ getConfig (env, dir) = do
     (\_ -> return "")
   where
     getc2 :: String -> String -> IO String
-    getc2 env dir = do
-      path <- getEnv env
-      return $ combine path dir
+    getc2 anEnv aDir = do
+      path <- getEnv anEnv
+      return $ combine path aDir
 
 getDirectoryStatus :: String -> IO Bool
 getDirectoryStatus fileName = do
   status <- fileExist fileName
   if status
     then do
-      status <- getFileStatus fileName
-      return $ isDirectory status
+      status' <- getFileStatus fileName
+      return $ isDirectory status'
     else return False
 
 
@@ -146,10 +148,17 @@ options = [ Option ['h'] ["help"]    (NoArg showUsage)           "this message"
 -- option handlers
 ------------------
 
+setVerbose :: Monad m => Options -> m Options
 setVerbose opt = return opt { optVerbose = True }
+
 --setTarget opt = return opt { optTarget = True }
+
+setConfig :: Monad m => String -> Options -> m Options
 setConfig arg opt = return opt { optConfig = arg }
+
+setSession :: Monad m => String -> Options -> m Options
 setSession arg opt = return opt { optSession = arg }
+
 --readInput arg opt = return opt { optInput = readFile arg }
 --writeOutput arg opt = return opt { optOutput = writeFile arg }
 --writeOutput arg opt = return opt { optOutput = withFile arg WriteMode }

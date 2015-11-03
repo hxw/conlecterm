@@ -3,12 +3,10 @@
 
 module ProcessRunner where
 
-import Data.Maybe
 import System.Process
 import Data.IORef
 import System.IO.Unsafe( unsafePerformIO )
 
-import qualified Control.Concurrent as CC
 import qualified Control.Concurrent.MVar as V
 
 type ProcRef = V.MVar ProcessHandle
@@ -20,13 +18,13 @@ newProcRef = V.newEmptyMVar
 -- run a command on a procref
 run :: ProcRef -> Maybe String -> [String] -> IO ()
 run procref dir (prog:args) = do
-  (_, _, _, proc) <-
+  (_, _, _, aProc) <-
     createProcess (proc prog args)
                   { cwd = dir
                   , std_out = Inherit
                   , std_err = Inherit
                   }
-  V.putMVar procref proc
+  V.putMVar procref aProc
   inc
   return ()
 
@@ -38,18 +36,21 @@ shutdown refproc = do
   if f
     then return ()
     else do
-      proc <- V.takeMVar refproc
+      aProc <- V.takeMVar refproc
       dec
-      exitStatus <- waitForProcess proc
+      _exitStatus <- waitForProcess aProc
       return ()
 
 
+counter :: IORef Int
 counter = unsafePerformIO $ newIORef 0
 
+inc :: IO ()
 inc = do
   i <- readIORef counter
   writeIORef counter $ i + 1
 
+dec :: IO ()
 dec = do
   i <- readIORef counter
   writeIORef counter $ i - 1

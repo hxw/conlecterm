@@ -20,8 +20,8 @@ cabal-version: >=1.10
 build-type: Simple
 
 -- source-repository head
---     type:     git
---     location: https://github.com/hxw/conlecterm.git
+--  type: git
+--  location: https://github.com/hxw/conlecterm.git
 
 extra-source-files:
                    README.md
@@ -46,14 +46,6 @@ Executable Conlecterm
                  gtk,
                  X11
 
-
-
-  --               lifted-base,
-  --               transformers, resourcet,
-  --               system-filepath,
-  --               unix,
-  --               imagemagick
   hs-source-dirs: src
   ghc-options: -Wall -fwarn-tabs
   default-language: Haskell2010
-  --default-language: Haskell98

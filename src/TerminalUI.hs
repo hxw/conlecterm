@@ -7,12 +7,10 @@ import Data.Maybe( fromJust )
 import Data.Foldable( foldlM )
 import Data.List( find )
 import Control.Monad.Trans( liftIO )
-import System.Process( ProcessHandle )
-import System.IO
+--import System.Process( ProcessHandle )
+--import System.IO
 
 import qualified Graphics.UI.Gtk as GTK
-
-import qualified Text.Read as TR
 
 import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
@@ -32,7 +30,14 @@ orientation SP.RightTabs  = GTK.PosRight
 orientation SP.TopTabs    = GTK.PosTop
 orientation SP.BottomTabs = GTK.PosBottom
 
---compileConfigs :: String -> String -> IO ()
+compileConfigs :: String
+                        -> String
+                        -> IO
+                             (Maybe
+                                (String,
+                                 SP.Orientation,
+                                 [CP.PaneInfo],
+                                 CP.Hashes))
 compileConfigs configFileName sessionFileName = do
   mh <- CP.compile [configFileName]
   case mh of
@@ -42,23 +47,23 @@ compileConfigs configFileName sessionFileName = do
       case session of
         Nothing -> return Nothing
         Just s -> do
-               let SP.Session name orientation tabs = s
+               let SP.Session name orient tabs = s
                tabList <- CP.expandPanes h tabs
-               return $ Just (name, orientation, tabList, h)
+               return $ Just (name, orient, tabList, h)
 
 
 run :: String -> String -> IO ()
 run configFileName sessionFileName = do
 
   r <- compileConfigs configFileName sessionFileName
-  let (sessionName, orient, tabList, h) = fromJust r
+  let (sessionName, orient, tabList, _h) = fromJust r
 
-  GTK.initGUI
+  _ <- GTK.initGUI
 
   toplevel <- GTK.windowNew
   notebook <- GTK.notebookNew
 
-  GTK.on notebook GTK.pageReordered $ reordered notebook
+  _ <- GTK.on notebook GTK.pageReordered $ reordered notebook
 
   GTK.notebookSetTabPos notebook $ orientation orient
   GTK.notebookSetHomogeneousTabs notebook True
@@ -76,7 +81,7 @@ run configFileName sessionFileName = do
   -- putStrLn $ "icons = " ++ (show availableIcons)
 
   -- if an icon is found assign it to toplevel window
-  let theIcon = find (\ (name, exists) -> exists) availableIcons
+  let theIcon = find (\ (_name, exists) -> exists) availableIcons
   -- putStrLn $ "icon = " ++ (show theIcon)
   case theIcon of
     Nothing -> return ()
@@ -89,12 +94,12 @@ run configFileName sessionFileName = do
 
   -- set up page switcher
   table <- GTK.tableNew 4 4 True
-  GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName
+  _ <- GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName
   GTK.widgetSetCanFocus notebook False
 
   -- create the buttons page
   GTK.widgetShowAll table
-  page <- GTK.notebookAppendPage notebook table "+NEW"
+  _page <- GTK.notebookAppendPage notebook table "+NEW"
 
   -- create all the initial table
   mapM_ (\tab ->  do
@@ -102,7 +107,7 @@ run configFileName sessionFileName = do
             addPane notebook title start dir command sendList running stopped) tabList
 
   -- link up the close button
-  GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit sessionName sessionFileName orient notebook
+  _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit sessionName sessionFileName orient notebook
 
   -- start the GTK event loop
   GTK.mainGUI
@@ -122,7 +127,7 @@ createButtons configFileName table notebook = do
   let h = fromJust mh
 
   allTabs <- CP.sortedTabs h
-  foldlM (\(x, y) item ->  do
+  _ <- foldlM (\(x, y) item ->  do
             let (title, start, dir, command, sendList, running, stopped) = item
             addButton table x y notebook title start dir command sendList running stopped
             let x1 = x + 1
@@ -161,7 +166,7 @@ checkExit sessionName sessionFileName orient notebook = do
 exitNotice :: IO ()
 exitNotice = do
   dialog <- GTK.messageDialogNew Nothing [GTK.DialogDestroyWithParent] GTK.MessageWarning GTK.ButtonsOk "Some tabs are still active"
-  response <- GTK.dialogRun dialog
+  _response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
 
 
@@ -184,7 +189,7 @@ addButton table x y notebook title autoStart dir commandList sendList running st
   GTK.widgetSetName button title
   GTK.containerAdd button label
 
-  GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
+  _ <- GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
 
   GTK.widgetShowAll button
   GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
@@ -217,13 +222,13 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   -- close tab button
   cb <- GTK.buttonNewWithLabel "Close"
   GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
-  GTK.on cb GTK.buttonActivated $ closePage notebook vbox
+  _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
   GTK.widgetShowAll cb
 
   -- start/restart button
   sb <- GTK.buttonNewWithLabel "Start"
   GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 32767 65535 32767)
-  GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
+  _ <- GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
   GTK.widgetShowAll sb
 
   -- button ordering start top, close bottom
@@ -243,8 +248,8 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   -- new page is reordereable
   GTK.notebookSetTabReorderable notebook vbox True
 
-  GTK.on socket GTK.socketPlugRemoved $ unplug sb buttonBox tabLabel stopped socket refproc
-  GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
+  _ <- GTK.on socket GTK.socketPlugRemoved $ unplug sb buttonBox tabLabel stopped socket refproc
+  _ <- GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
 
   if autoStart
     then do
@@ -297,7 +302,7 @@ press buttons socket title refproc dir commandList = do
 -- send too quickly and the event queue locks up
 plug :: Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket -> [String] -> IO ()
 plug tabLabel colour socket sendList = do
-  h <- GTK.timeoutAdd (delayedSend tabLabel colour socket sendList) 1000
+  _h <- GTK.timeoutAdd (delayedSend tabLabel colour socket sendList) 1000
   return ()
 
 
@@ -339,6 +344,8 @@ pageChange window notebook table configFileName page = do
     then createButtons configFileName table notebook
     else xpageChange window notebook page
 
+
+xpageChange :: GTK.Window -> GTK.Notebook -> Int -> IO ()
 xpageChange window notebook page = do
   vBox <- GTK.notebookGetNthPage notebook page
   children <- GTK.containerGetChildren $ GTK.castToVBox $ fromJust vBox
