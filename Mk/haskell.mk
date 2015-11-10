@@ -12,6 +12,10 @@ PROG_ARGS ?= -v -c ${PROGRAM}.conf
 # default location of cabal built binary
 PROG_BIN ?= ./dist/build/${PROGRAM}/${PROGRAM}
 
+# desktop file
+HAS_DESKTOP_FILE ?= NO
+PROG_DESKTOP ?= ${PROGRAM}.desktop
+
 # installation directory
 INSTALL_DIR ?= ${HOME}/bin
 
@@ -54,11 +58,16 @@ deps: ${CABAL_FILE}
 	cabal install --only-dependencies
 
 # install the application binary
-.PHONY: install
-install:
+.PHONY: install pre-install do-install post-install
+install: pre-install do-install post-install
+pre-install:
+do-install:
 	@[ -d '${INSTALL_DIR}' ] || ${SAY} 'missing directory: ${INSTALL_DIR}' || exit 1
 	${INSTALL_PROGRAM} '${PROG_BIN}' '${INSTALL_DIR}/${PROGRAM}'
-
+.if "YES" == "${HAS_DESKTOP_FILE}"
+	${INSTALL_PROGRAM} '${PROG_DESKTOP}' '${INSTALL_DIR}/${PROGRAM}'
+.endif
+post-install:
 
 # install sandbox if not already installed and build
 .PHONY: sandbox-init
@@ -74,7 +83,7 @@ ${CABAL_SANDBOX}:
 	cabal update
 	cabal install alex
 	cabal install happy
-.if YES == ${USE_GTK}
+.if "YES" == "${USE_GTK}"
 	cabal install gtk2hs-buildtools
 .endif
 

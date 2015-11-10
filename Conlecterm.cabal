@@ -26,7 +26,8 @@ build-type: Simple
 extra-source-files:
                    README.md
                    LICENSE.text
-                   conlecterm.desktop
+                   Conlecterm.desktop
+                   config.rc
 
 Executable Conlecterm
   main-is: Main.hs
