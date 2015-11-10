@@ -65,7 +65,7 @@ do-install:
 	@[ -d '${INSTALL_DIR}' ] || ${SAY} 'missing directory: ${INSTALL_DIR}' || exit 1
 	${INSTALL_PROGRAM} '${PROG_BIN}' '${INSTALL_DIR}/${PROGRAM}'
 .if "YES" == "${HAS_DESKTOP_FILE}"
-	${INSTALL_PROGRAM} '${PROG_DESKTOP}' '${INSTALL_DIR}/${PROGRAM}'
+	${INSTALL_PROGRAM} '${PROG_DESKTOP}' '${INSTALL_DIR}/${PROG_DESKTOP}'
 .endif
 post-install:
 
