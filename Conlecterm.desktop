@@ -1,14 +1,14 @@
 [Desktop Entry]
 Categories=System;TerminalEmulator;
-Comment[en_GB]=
+Comment[en_GB]=Multi tabbed terminal handler
 Comment=Multi tabbed terminal handler
-Exec=conlecterm
-GenericName[en_GB]=ConlecTerm
-GenericName=ConlecTerm
+Exec=Conlecterm
+GenericName[en_GB]=Conlecterm
+GenericName=Conlecterm
 Icon=utilities-terminal
 MimeType=
-Name[en_GB]=ConlecTerm
-Name=ConlecTerm
+Name[en_GB]=Conlecterm
+Name=Conlecterm
 StartupNotify=true
 Terminal=false
 TerminalOptions=
