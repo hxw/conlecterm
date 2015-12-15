@@ -18,6 +18,7 @@ PROG_DESKTOP ?= ${PROGRAM}.desktop
 
 # installation directory
 INSTALL_DIR ?= ${HOME}/bin
+APPLICATIONS_DIR ?= ${HOME}/.local/share/applications
 
 # the default cabal file
 CABAL_FILE ?= ${PROGRAM}.cabal
@@ -26,6 +27,7 @@ CABAL_SANDBOX = .cabal-sandbox
 # utilities
 RM = rm -f
 SAY = echo
+SED = sed
 INSTALL_PROGRAM ?= install -C
 INSTALL_CONFIG  ?= cp -p
 
@@ -62,10 +64,11 @@ deps: ${CABAL_FILE}
 install: pre-install do-install post-install
 pre-install:
 do-install:
-	@[ -d '${INSTALL_DIR}' ] || ${SAY} 'missing directory: ${INSTALL_DIR}' || exit 1
+	@if [ ! -d '${INSTALL_DIR}' ]; then ${SAY} 'missing directory: ${INSTALL_DIR}'; false; fi
 	${INSTALL_PROGRAM} '${PROG_BIN}' '${INSTALL_DIR}/${PROGRAM}'
 .if "YES" == "${HAS_DESKTOP_FILE}"
-	${INSTALL_PROGRAM} '${PROG_DESKTOP}' '${INSTALL_DIR}/${PROG_DESKTOP}'
+	@if [ ! -d '${APPLICATIONS_DIR}' ]; then ${SAY} 'missing  directory: ${APPLICATIONS_DIR}'; false; fi
+	${SED} 's,@BINDIR@,${INSTALL_DIR}/,' < '${PROG_DESKTOP}' > '${APPLICATIONS_DIR}/${PROG_DESKTOP}'
 .endif
 post-install:
 
