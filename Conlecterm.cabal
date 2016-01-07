@@ -39,6 +39,7 @@ Executable Conlecterm
                  hashtables,
                  bytestring,
                  directory,
+                 pango,
                  parsec,
                  unix,
                  process,

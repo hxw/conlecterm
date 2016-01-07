@@ -11,6 +11,7 @@ import Control.Monad.Trans( liftIO )
 --import System.IO
 
 import qualified Graphics.UI.Gtk as GTK
+import Graphics.Rendering.Pango as Pango
 
 import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
@@ -30,6 +31,22 @@ orientation SP.RightTabs  = GTK.PosRight
 orientation SP.TopTabs    = GTK.PosTop
 orientation SP.BottomTabs = GTK.PosBottom
 
+
+-- text sizes and weights
+tabTextSize :: (Double, Weight)
+tabTextSize = (11, Pango.WeightBold)
+
+buttonTextSize :: (Double, Weight)
+buttonTextSize = (16, Pango.WeightMedium)
+
+startTextSize :: (Double, Weight)
+startTextSize = (64, Pango.WeightBold)
+
+closeTextSize :: (Double, Weight)
+closeTextSize = (32, Pango.WeightBold)
+
+
+-- compile the configuration
 compileConfigs :: String
                         -> String
                         -> IO
@@ -99,7 +116,10 @@ run configFileName sessionFileName = do
 
   -- create the buttons page
   GTK.widgetShowAll table
-  _page <- GTK.notebookAppendPage notebook table "+NEW"
+  _buttonPage <- GTK.notebookAppendPage notebook table "+NEW"
+  tabLabel <- GTK.notebookGetTabLabel notebook table
+  setTabTextColour tabLabel $ Just (GTK.Color 32767 0 32767)
+  setTabTextSize tabLabel tabTextSize
 
   -- create all the initial table
   mapM_ (\tab ->  do
@@ -174,6 +194,7 @@ exitNotice = do
 addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
 addButton table x y notebook title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
+  setLabelTextSize label buttonTextSize
 
   case running of
     Nothing -> return ()
@@ -219,14 +240,26 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   buttonBox <- GTK.tableNew rows columns False
   --GTK.widgetShowAll table
 
+  -- -- close tab button
+  -- cb <- GTK.buttonNewWithLabel "Close"
+  -- GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
+  -- _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
+  -- GTK.widgetShowAll cb
+
   -- close tab button
-  cb <- GTK.buttonNewWithLabel "Close"
+  cl <- GTK.labelNew $ Just "Close"
+  setLabelTextSize cl closeTextSize
+  cb <- GTK.buttonNew
+  GTK.containerAdd cb cl
   GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
   _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
   GTK.widgetShowAll cb
 
   -- start/restart button
-  sb <- GTK.buttonNewWithLabel "Start"
+  sl <- GTK.labelNew $ Just "Start"
+  setLabelTextSize sl startTextSize
+  sb <- GTK.buttonNew
+  GTK.containerAdd sb sl
   GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 32767 65535 32767)
   _ <- GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
   GTK.widgetShowAll sb
@@ -245,6 +278,8 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   page <- GTK.notebookAppendPage notebook vbox title
   tabLabel <- GTK.notebookGetTabLabel notebook vbox
   setTabTextColour tabLabel stopped
+  setTabTextSize tabLabel tabTextSize
+
   -- new page is reordereable
   GTK.notebookSetTabReorderable notebook vbox True
 
@@ -335,6 +370,18 @@ setTabTextColour (Just tabLabel) (Just colour) = do
   GTK.widgetModifyFg tabLabel GTK.StateNormal colour
   GTK.widgetModifyFg tabLabel GTK.StateActive colour
 setTabTextColour _ _ = return ()
+
+
+-- set font size/weight of a tab label
+setTabTextSize :: Maybe GTK.Widget -> (Double, Weight) -> IO ()
+setTabTextSize (Just tabLabel) (fontSize, fontWeight) = do
+  let label = GTK.castToLabel tabLabel
+  setLabelTextSize label (fontSize, fontWeight)
+setTabTextSize _ _ = return ()
+
+setLabelTextSize :: GTK.Label -> (Double, Weight) -> IO ()
+setLabelTextSize label (fontSize, fontWeight) = do
+  GTK.labelSetAttributes label [Pango.AttrWeight 0 999 fontWeight, Pango.AttrSize 0 999 fontSize]
 
 
 -- change the main title to be the tab name
