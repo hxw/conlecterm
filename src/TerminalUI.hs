@@ -283,7 +283,7 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   -- new page is reordereable
   GTK.notebookSetTabReorderable notebook vbox True
 
-  _ <- GTK.on socket GTK.socketPlugRemoved $ unplug sb buttonBox tabLabel stopped socket refproc
+  _ <- GTK.on socket GTK.socketPlugRemoved $ unplug buttonBox tabLabel stopped socket refproc
   _ <- GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
 
   if autoStart
@@ -350,10 +350,9 @@ delayedSend tabLabel colour socket sendList = do
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Button ->  GTK.Table -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
-unplug startButton otherButtons tabLabel colour socket refproc = do
+unplug :: GTK.Table -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug otherButtons tabLabel colour socket refproc = do
   GTK.widgetHide socket
-  GTK.buttonSetLabel startButton "Restart"
 
   PR.shutdown refproc
 
