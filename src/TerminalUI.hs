@@ -19,7 +19,7 @@ import qualified ProcessRunner as PR
 import qualified SendControl as SC
 
 initialTitle :: String
-initialTitle = "Conlecterm@"
+initialTitle = "Conlecterm"
 
 -- list of possible icons from default theme
 iconNameList :: [String]
@@ -387,22 +387,18 @@ setLabelTextSize label (fontSize, fontWeight) = do
 pageChange :: GTK.Window -> GTK.Notebook -> GTK.Table -> String -> Int -> IO ()
 pageChange window notebook table configFileName page = do
   if page == 0
-    then createButtons configFileName table notebook
-    else xpageChange window notebook page
+  then do
+    createButtons configFileName table notebook
+    GTK.set window [GTK.windowTitle GTK.:= initialTitle]
+  else changeTitle window notebook page
 
 
-xpageChange :: GTK.Window -> GTK.Notebook -> Int -> IO ()
-xpageChange window notebook page = do
+changeTitle :: GTK.Window -> GTK.Notebook -> Int -> IO ()
+changeTitle window notebook page = do
   vBox <- GTK.notebookGetNthPage notebook page
-  children <- GTK.containerGetChildren $ GTK.castToVBox $ fromJust vBox
-
-  title <- case children of
-    [] -> return initialTitle
-    (child:_) -> do
-      GTK.widgetSetCanFocus child True
-      GTK.widgetGrabFocus child
-      text <- GTK.notebookGetTabLabelText notebook child
-      case text of
-        Nothing -> return initialTitle
-        Just title -> return $ initialTitle ++ " - " ++ title
+  let thePage = fromJust vBox
+  text <- GTK.notebookGetTabLabelText notebook thePage
+  let title = case text of
+                Nothing -> initialTitle ++ " - " ++ (show page)
+                Just s  -> initialTitle ++ " - " ++ s
   GTK.set window [GTK.windowTitle GTK.:= title]
