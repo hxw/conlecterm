@@ -251,7 +251,11 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   setLabelTextSize cl closeTextSize
   cb <- GTK.buttonNew
   GTK.containerAdd cb cl
-  GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
+  GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 32767 16383 16383)
+  GTK.widgetModifyBg cb GTK.StateSelected (GTK.Color 32767 16383 16383)
+  GTK.widgetModifyBg cb GTK.StateNormal (GTK.Color 20000 10000 10000)
+  GTK.widgetModifyBg cb GTK.StateActive (GTK.Color 65535 32767 32767)
+
   _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
   GTK.widgetShowAll cb
 
@@ -260,7 +264,10 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   setLabelTextSize sl startTextSize
   sb <- GTK.buttonNew
   GTK.containerAdd sb sl
-  GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 32767 65535 32767)
+  GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 16383 32767 16383)
+  GTK.widgetModifyBg sb GTK.StateSelected (GTK.Color 16383 32767 16383)
+  GTK.widgetModifyBg sb GTK.StateNormal (GTK.Color 10000 20000 10000)
+  GTK.widgetModifyBg sb GTK.StateActive (GTK.Color 32767 65535 32767)
   _ <- GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
   GTK.widgetShowAll sb
 
