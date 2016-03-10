@@ -1,11 +1,12 @@
 -- Copyright (c) 2012-2015, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD see LICENSE.text
 
-module TerminalUI where
+module TerminalUI(run
+                 ) where
 
-import Data.Maybe( fromJust )
 import Data.Foldable( foldlM )
 import Data.List( find )
+import Control.Monad (when)
 import Control.Monad.Trans( liftIO )
 --import System.Process( ProcessHandle )
 --import System.IO
@@ -46,6 +47,24 @@ closeTextSize :: (Double, Weight)
 closeTextSize = (32, Pango.WeightBold)
 
 
+-- colours for buttons
+type Colours = (GTK.Color, GTK.Color, GTK.Color)
+
+startButtonColours :: Colours
+startButtonColours = (startNormalColour, startHoverColour, startActiveColour)
+    where
+      startNormalColour = GTK.Color 10000 20000 10000
+      startHoverColour  = GTK.Color 16383 32767 16383
+      startActiveColour = GTK.Color 32767 65535 32767
+
+closeButtonColours :: Colours
+closeButtonColours = (closeNormalColour, closeHoverColour, closeActivecolour)
+    where
+      closeNormalColour = GTK.Color 20000 10000 10000
+      closeHoverColour  = GTK.Color 32767 16383 16383
+      closeActivecolour = GTK.Color 65535 32767 32767
+
+
 -- compile the configuration
 compileConfigs :: String
                         -> String
@@ -69,11 +88,18 @@ compileConfigs configFileName sessionFileName = do
                return $ Just (name, orient, tabList, h)
 
 
-run :: String -> String -> IO ()
+run :: String -> String -> IO (Maybe String)
 run configFileName sessionFileName = do
 
   r <- compileConfigs configFileName sessionFileName
-  let (sessionName, orient, tabList, _h) = fromJust r
+  case r of
+    Nothing -> return $ Just "error in configuration file"
+    Just session -> do
+           run' configFileName sessionFileName session
+           return Nothing
+
+run' :: String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> IO ()
+run' configFileName sessionFileName (sessionName, orient, tabList, _h) = do
 
   _ <- GTK.initGUI
 
@@ -144,17 +170,22 @@ createButtons configFileName table notebook = do
 
   -- fetch possible updated configuration
   mh <- CP.compile [configFileName]
-  let h = fromJust mh
+  case mh of
+    Nothing -> do
+            putStrLn $ "error re-reading configuration"
+            return ()
+    Just cfg -> create' cfg
 
-  allTabs <- CP.sortedTabs h
-  _ <- foldlM (\(x, y) item ->  do
-            let (title, start, dir, command, sendList, running, stopped) = item
-            addButton table x y notebook title start dir command sendList running stopped
-            let x1 = x + 1
-            if x > 4 then return (0, y + 1) else return (x1, y)
-         ) (0, 0) allTabs
-  GTK.widgetShowAll table
-  return ()
+      where create' h = do
+              allTabs <- CP.sortedTabs h
+              _ <- foldlM (\(x, y) item ->  do
+                            let (title, start, dir, command, sendList, running, stopped) = item
+                            addButton table x y notebook title start dir command sendList running stopped
+                            let x1 = x + 1
+                            if x > 4 then return (0, y + 1) else return (x1, y)
+                         ) (0, 0) allTabs
+              GTK.widgetShowAll table
+              return ()
 
 
 -- do not allow exit if still some tabs are open
@@ -195,20 +226,47 @@ addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe 
 addButton table x y notebook title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
   setLabelTextSize label buttonTextSize
-
-  case running of
-    Nothing -> return ()
-    Just colour -> do
-      GTK.widgetModifyFg label GTK.StateNormal colour
-      GTK.widgetModifyFg label GTK.StatePrelight colour
-      GTK.widgetModifyFg label GTK.StateActive colour
   button <- GTK.buttonNew
-  --GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 32767 32757 32767)
-  --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 16383)
-  --GTK.widgetModifyBg button GTK.StateActive (GTK.Color 0 0 0)
 
   GTK.widgetSetName button title
   GTK.containerAdd button label
+
+
+  -- let r = case running of
+  --           Nothing -> GTK.Color 32767 32767 32767
+  --           Just colour -> colour
+  -- let s = case stopped of
+  --           Nothing -> GTK.Color 8191 9191 32767
+  --           Just colour -> colour
+
+  -- putStrLn $ "r = " ++ (show r)
+  -- putStrLn $ "s = " ++ (show s)
+
+  -- c <- GTK.containerGetChildren button
+  -- case c of
+  --   [] -> return ()
+  --   label2:_ -> do
+  --          GTK.widgetModifyFg label2 GTK.StateNormal r
+  --          GTK.widgetModifyFg label2 GTK.StatePrelight r
+  --          GTK.widgetModifyFg label2 GTK.StateSelected r
+  --          GTK.widgetModifyFg label2 GTK.StateActive r
+
+  -- GTK.widgetModifyBg label GTK.StateNormal (GTK.Color 65000 65000 65000)
+  -- GTK.widgetModifyFg label GTK.StateNormal (GTK.Color 65000 65000 65000)
+  -- GTK.widgetModifyText label GTK.StateNormal (GTK.Color 65000 65000 65000)
+  -- GTK.widgetModifyFg button GTK.StateNormal (GTK.Color 65000 65000 65000)
+  -- GTK.widgetModifyText button GTK.StateNormal (GTK.Color 65000 65000 65000)
+
+
+  -- GTK.widgetModifyBg button GTK.StateNormal r
+  -- GTK.widgetModifyBg button GTK.StatePrelight s
+  -- GTK.widgetModifyBg button GTK.StateSelected s
+  --GTK.widgetModifyBg button GTK.StateActive r
+
+  --GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 32000 32000 40000)
+  --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 20000)
+  --GTK.widgetModifyBg button GTK.StateSelected (GTK.Color 8191 8191 20000)
+  -- GTK.widgetModifyBg button GTK.StateActive (GTK.Color 10000 58000 60000)
 
   _ <- GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
 
@@ -250,11 +308,8 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   cl <- GTK.labelNew $ Just "Close"
   setLabelTextSize cl closeTextSize
   cb <- GTK.buttonNew
+  setButtonColours cb closeButtonColours
   GTK.containerAdd cb cl
-  GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 32767 16383 16383)
-  GTK.widgetModifyBg cb GTK.StateSelected (GTK.Color 32767 16383 16383)
-  GTK.widgetModifyBg cb GTK.StateNormal (GTK.Color 20000 10000 10000)
-  GTK.widgetModifyBg cb GTK.StateActive (GTK.Color 65535 32767 32767)
 
   _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
   GTK.widgetShowAll cb
@@ -263,11 +318,9 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   sl <- GTK.labelNew $ Just "Start"
   setLabelTextSize sl startTextSize
   sb <- GTK.buttonNew
+  setButtonColours sb startButtonColours
   GTK.containerAdd sb sl
-  GTK.widgetModifyBg sb GTK.StatePrelight (GTK.Color 16383 32767 16383)
-  GTK.widgetModifyBg sb GTK.StateSelected (GTK.Color 16383 32767 16383)
-  GTK.widgetModifyBg sb GTK.StateNormal (GTK.Color 10000 20000 10000)
-  GTK.widgetModifyBg sb GTK.StateActive (GTK.Color 32767 65535 32767)
+
   _ <- GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
   GTK.widgetShowAll sb
 
@@ -277,10 +330,7 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   GTK.containerAdd vbox buttonBox
 
   -- automatically start sub-process?
-  if autoStart
-    then return ()
-    else do
-      GTK.widgetShowAll buttonBox
+  when (not autoStart) $ GTK.widgetShowAll buttonBox
 
   page <- GTK.notebookAppendPage notebook vbox title
   tabLabel <- GTK.notebookGetTabLabel notebook vbox
@@ -293,10 +343,7 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   _ <- GTK.on socket GTK.socketPlugRemoved $ unplug buttonBox tabLabel stopped socket refproc
   _ <- GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
 
-  if autoStart
-    then do
-      runC refproc socket title dir commandList
-    else return ()
+  when autoStart $ runC refproc socket title dir commandList
 
   return page
 
@@ -314,9 +361,7 @@ closePage notebook page = do
 -- prevent reorder < 1st place
 reordered :: GTK.Notebook -> GTK.Widget -> Int -> IO ()
 reordered notebook page position = do
-  if position < 2
-    then GTK.notebookReorderChild notebook page 1
-    else return ()
+  when (position < 2) $ GTK.notebookReorderChild notebook page 1
 
 
 -- run a command
@@ -370,6 +415,15 @@ unplug otherButtons tabLabel colour socket refproc = do
   return True
 
 
+-- set the colours of a button
+setButtonColours :: GTK.Button -> Colours -> IO ()
+setButtonColours button (normal, hover, active) = do
+  GTK.widgetModifyBg button GTK.StateNormal normal
+  GTK.widgetModifyBg button GTK.StatePrelight hover
+  GTK.widgetModifyBg button GTK.StateSelected hover
+  GTK.widgetModifyBg button GTK.StateActive active
+
+
 -- set the text colour of a tab label
 setTabTextColour :: Maybe GTK.Widget -> Maybe GTK.Color -> IO ()
 setTabTextColour (Just tabLabel) (Just colour) = do
@@ -387,25 +441,26 @@ setTabTextSize _ _ = return ()
 
 setLabelTextSize :: GTK.Label -> (Double, Weight) -> IO ()
 setLabelTextSize label (fontSize, fontWeight) = do
+  --GTK.labelSetAttributes label [Pango.AttrWeight 0 999 fontWeight, Pango.AttrSize 0 999 fontSize, Pango.AttrForeground 0 999 (GTK.Color 0 0 0)]
   GTK.labelSetAttributes label [Pango.AttrWeight 0 999 fontWeight, Pango.AttrSize 0 999 fontSize]
 
 
 -- change the main title to be the tab name
 pageChange :: GTK.Window -> GTK.Notebook -> GTK.Table -> String -> Int -> IO ()
 pageChange window notebook table configFileName page = do
-  if page == 0
-  then do
-    createButtons configFileName table notebook
-    GTK.set window [GTK.windowTitle GTK.:= initialTitle]
-  else changeTitle window notebook page
+  when (page == 0) $ createButtons configFileName table notebook
+  changeTitle window notebook page
 
 
 changeTitle :: GTK.Window -> GTK.Notebook -> Int -> IO ()
 changeTitle window notebook page = do
   vBox <- GTK.notebookGetNthPage notebook page
-  let thePage = fromJust vBox
-  text <- GTK.notebookGetTabLabelText notebook thePage
-  let title = case text of
-                Nothing -> initialTitle ++ " - " ++ (show page)
-                Just s  -> initialTitle ++ " - " ++ s
-  GTK.set window [GTK.windowTitle GTK.:= title]
+  case vBox of
+    Nothing ->  GTK.set window [GTK.windowTitle GTK.:= initialTitle]
+
+    Just thePage -> do
+              text <- GTK.notebookGetTabLabelText notebook thePage
+              let title = case text of
+                            Nothing -> initialTitle ++ " - " ++ (show page)
+                            Just s  -> initialTitle ++ " - " ++ s
+              GTK.set window [GTK.windowTitle GTK.:= title]

@@ -92,6 +92,8 @@ pane "Project 5" {
 pane "Work" {
     run urxvt
     start manual
+    running colour(0x2fff,0x2fff,0x7fff)
+    stopped colour(0x1fff,0x1fff,0x3fff)
     send-line "export CONF=test1"
     send-line "work-setup"
 }
@@ -99,23 +101,31 @@ pane "Work" {
 pane "shell" {
     run urxvt
     start auto
+    running colour(0x2fff,0x2fff,0x7fff)
+    stopped colour(0x1fff,0x1fff,0x3fff)
     cwd "/tmp"
 }
 
 pane "EMACS" {
     run emacs
     start auto
+    running colour(0x2fff,0x2fff,0x7fff)
+    stopped colour(0x1fff,0x1fff,0x3fff)
     #cwd home
 }
 
 pane "xterm-etc" {
     run xterm
     start auto
+    running colour(0x2fff,0x2fff,0x7fff)
+    stopped colour(0x1fff,0x1fff,0x3fff)
     cwd "/etc"
 }
 
 pane "Vi IMproved" {
     run gvim
     start auto
+    running colour(0x2fff,0x2fff,0x7fff)
+    stopped colour(0x1fff,0x1fff,0x3fff)
     #cwd home
 }
