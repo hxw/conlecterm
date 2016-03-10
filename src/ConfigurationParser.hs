@@ -5,11 +5,11 @@
 
 module ConfigurationParser where
 
-import Data.Maybe( isNothing, fromMaybe, fromJust )
-import Data.Foldable( foldlM )
-import Data.List( sortBy )
-import Data.Text( pack, toLower )
-import Text.Parsec.Prim( ParsecT )
+import Data.Maybe (isJust, isNothing, fromMaybe, fromJust)
+import Data.Foldable (foldlM )
+import Data.List (sortBy )
+import Data.Text (pack, toLower )
+import Text.Parsec.Prim (ParsecT)
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 import qualified Text.Parsec.Prim as N
@@ -18,9 +18,9 @@ import Text.ParserCombinators.Parsec.Language
 import qualified Graphics.UI.Gtk as GTK
 
 import System.IO
-import System.Posix.Files ( fileExist )
-import System.FilePath( combine, pathSeparator )
-import System.Environment( getEnv )
+import System.Posix.Files (fileExist)
+import System.FilePath (combine, pathSeparator)
+import System.Environment (getEnv)
 
 import qualified Data.HashTable.IO as HT
 --import Control.Monad.Trans (liftIO, lift)
@@ -588,23 +588,30 @@ type PaneInfo = (String, Bool, Maybe String, CommandList, SendList, Maybe Colour
 
 
 -- get a list of panes from a list of tab names
+-- if the session contains tab names that no longer exists, just remove them
 expandPanes :: Hashes -> [String] -> IO [PaneInfo]
 expandPanes (hashCmd, hashPane) tabs = do
-  mapM expandPane tabs
+  t <- mapM expandPane tabs
+  return $ ((map fromJust) . (filter isJust)) t
       where
-        expandPane :: String -> IO PaneInfo
+        expandPane :: String -> IO (Maybe PaneInfo)
         expandPane pane = do
           p <- HT.lookup hashPane pane
-          let PaneRecord { paneTitle = title
-                         , paneAuto  = start
-                         , paneDir   = dir
-                         , paneRun   = pRun
-                         , paneSend  = send
-                         , paneRunning = running
-                         , paneStopped = stopped
-                         } = fromJust p
-          command <- HT.lookup hashCmd pRun
-          return $ (title, start, dir, fromJust command, send, running, stopped)
+          case p of
+            Nothing -> do
+                   putStrLn $ "pane " ++ pane ++ " no longer exists, dropping"
+                   return Nothing
+            Just paneInfo -> do
+                            let PaneRecord { paneTitle = title
+                                           , paneAuto  = start
+                                           , paneDir   = dir
+                                           , paneRun   = pRun
+                                           , paneSend  = send
+                                           , paneRunning = running
+                                           , paneStopped = stopped
+                                           } = paneInfo
+                            command <- HT.lookup hashCmd pRun
+                            return $ Just (title, start, dir, fromJust command, send, running, stopped)
 
 -- get a sorted list of all the tab names
 -- (case insensitive sort)
