@@ -73,8 +73,10 @@ main = do
     False -> usage ["missing session file: ", sessionFile]
     True -> return ()
 
-  TU.run configFile sessionFile
-  exitSuccess
+  message <- TU.run configFile sessionFile
+  case message of
+    Nothing -> exitSuccess
+    Just errorMessage -> usage ["error formUI: ", errorMessage]
 
 
 -- determine configuration directory
