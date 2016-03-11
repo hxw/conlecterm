@@ -6,7 +6,7 @@ PROGRAM ?= SetMe
 # need to include gtk2hs
 USE_GTK ?= NO
 
-# a default agument list for run - averride as required
+# a default agument list for run - override as required
 PROG_ARGS ?= -v -c ${PROGRAM}.conf
 
 # default location of cabal built binary
@@ -20,9 +20,11 @@ PROG_DESKTOP ?= ${PROGRAM}.desktop
 INSTALL_DIR ?= ${HOME}/bin
 APPLICATIONS_DIR ?= ${HOME}/.local/share/applications
 
-# the default cabal file
+# the default cabal file and related items
 CABAL_FILE ?= ${PROGRAM}.cabal
 CABAL_SANDBOX = .cabal-sandbox
+CABAL_CONFIG ?= cabal.config
+CABAL ?= cabal --config-file='${CABAL_CONFIG}'
 
 # utilities
 RM = rm -f
@@ -34,7 +36,7 @@ INSTALL_CONFIG  ?= cp -p
 # default target
 .PHONY: all
 all: setup deps
-	cabal build
+	${CABAL} build
 
 .PHONY: help
 help:
@@ -42,10 +44,16 @@ help:
 	@${SAY} '  all             - build the application'
 	@${SAY} '  deps            - update sandbox if "${CABAL_FILE}" was changed'
 	@${SAY} '  run             - run the application (build if necessary)'
+	@${SAY} '  test            - run the unit tests'
 	@${SAY} '  install         - install the application binary in "${INSTALL_DIR}" (build if necessary)'
 	@${SAY} '  setup           - install the cabal-sandbox if not already installed'
-	@${SAY} '  clean           - clean up application objec/binary files'
-	@${SAY} '  complete-clean  - clean then destroy sandbox'
+	@${SAY} '  update          - update the cabal index files'
+	@${SAY} '  doc             - build documentataion'
+	@${SAY} '  list-repo       - list all items downloaded to local-cache'
+	@${SAY} '  clean           - clean up application object/binary files'
+	@${SAY} '  clean-sandbox   - clean then destroy sandbox'
+	@${SAY} '  clean-repo      - remove local repo cache'
+	@${SAY} '  complete-clean  - run all the above cleans'
 
 
 # run the program with supplied arguments
@@ -57,7 +65,7 @@ run: all
 # run this if  the .cabal file changes
 .PHONY: deps
 deps: ${CABAL_FILE}
-	cabal install --only-dependencies
+	${CABAL} install --only-dependencies --enable-documentation --enable-tests
 
 # install the application binary
 .PHONY: install pre-install do-install post-install
@@ -72,38 +80,77 @@ do-install:
 .endif
 post-install:
 
+# documentation
+.PHONY: doc
+doc: all
+	${CABAL} haddock --all --internal --hyperlink-source
+	${CABAL} hscolour --all
+
+# run tests
+.PHONY: test
+test:
+	${CABAL} test
+
 # install sandbox if not already installed and build
 .PHONY: sandbox-init
 sandbox-init:
 	@[ -d .cabal-sandbox ] || ${MAKE} setup
+
+# just update cabal index
+.PHONY: update
+update:
+	${CABAL} update
 
 # setup sandbox and install required tools
 .PHONY: setup
 setup: ${CABAL_SANDBOX}
 
 ${CABAL_SANDBOX}:
-	cabal sandbox init
-	cabal update
-	cabal install alex
-	cabal install happy
+	${CABAL} sandbox init
+	${CABAL} update
+	${CABAL} install alex
+	${CABAL} install happy
 .if "YES" == "${USE_GTK}"
-	cabal install gtk2hs-buildtools
+	${CABAL} install gtk2hs-buildtools
 .endif
+
+# list the local repository pacakages with versions
+# this is all packackes currently cached
+# (use "-not -depth 1" to ignore the index files)
+.PHONY: list-repo
+list-repo:
+	@find local-cache/hackage.haskell.org -type f -not -depth 1 -name '*.tar.gz' \
+	 | sort \
+	 | sed -E 's@^.*/([^/]+)-([.[:digit:]]+)\.tar\.gz$$@\1==\2@'
 
 # clean up object files
 .PHONY: clean
 clean:
-	cabal clean
+	${CABAL} clean
 
 
-# clean everything
-.PHONY: complete-clean
-complete-clean: clean
+# remove sandbox
+.PHONY: clean-sandbox
+clean-sandbox: clean
 	${RM} -r ${CABAL_SANDBOX}
 	${RM} cabal.sandbox.config
 
+# remove repo cache
+.PHONY: clean-repo
+clean-repo:
+	${RM} -r local-cache
+
+# clean everything
+.PHONY: complete-clean
+complete-clean: clean clean-sandbox clean-repo
+
 # emacs interface
-.PHONY: emacs-1 emacs-2 emacs-9
+.PHONY: emacs-1 emacs-2 emacs-3 emacs-5 emacs-9
 emacs-1: run
 emacs-2: deps
+emacs-3: update
+emacs-5: doc
 emacs-9: setup
+
+.PHONY: test-1
+test-1: test
