@@ -30,8 +30,8 @@ CABAL ?= cabal --config-file='${CABAL_CONFIG}'
 RM = rm -f
 SAY = echo
 SED = sed
-INSTALL_PROGRAM ?= install -C
-INSTALL_CONFIG  ?= cp -p
+INSTALL_PROGRAM ?= install -C -s -m 0755
+INSTALL_DATA  ?= install -C -m 0644
 
 # default target
 .PHONY: all
@@ -76,7 +76,7 @@ do-install:
 	${INSTALL_PROGRAM} '${PROG_BIN}' '${INSTALL_DIR}/${PROGRAM}'
 .if "YES" == "${HAS_DESKTOP_FILE}"
 	@if [ ! -d '${APPLICATIONS_DIR}' ]; then ${SAY} 'missing  directory: ${APPLICATIONS_DIR}'; false; fi
-	${SED} 's,@BINDIR@,${INSTALL_DIR}/,' < '${PROG_DESKTOP}' > '${APPLICATIONS_DIR}/${PROG_DESKTOP}'
+	${INSTALL_DATA} '${PROG_DESKTOP}' '${APPLICATIONS_DIR}/${PROG_DESKTOP}'
 .endif
 post-install:
 
