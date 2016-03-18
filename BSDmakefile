@@ -1,7 +1,7 @@
 # Makefile
 
 # basic settings
-PROGRAM = Conlecterm
+PROGRAM = conlecterm
 
 # need to include gtk2hs
 USE_GTK = YES

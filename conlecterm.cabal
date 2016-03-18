@@ -1,4 +1,4 @@
-name: Conlecterm
+name: conlecterm
 version: 1.0
 synopsis: A multi-tab terminal framwork
 description:
@@ -29,7 +29,7 @@ extra-source-files:
                    Conlecterm.desktop
                    config.rc
 
-Executable Conlecterm
+Executable conlecterm
   main-is: Main.hs
   build-tools: alex, happy
                -- gtk2hs-buildtools -- not understood by cabal

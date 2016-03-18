@@ -27,6 +27,9 @@ run procref dir (prog:args) = do
   V.putMVar procref aProc
   inc
   return ()
+run _ _ [] = do
+  _ <- error "empty run command"
+  return ()
 
 
 -- ait for child termination
