@@ -226,7 +226,19 @@ addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe 
 addButton table x y notebook title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
   setLabelTextSize label buttonTextSize
+
+  case running of
+    Nothing -> return ()
+    Just colour -> do
+      GTK.widgetModifyFg label GTK.StateNormal colour
+      GTK.widgetModifyFg label GTK.StateSelected colour
+      GTK.widgetModifyFg label GTK.StatePrelight colour
+      GTK.widgetModifyFg label GTK.StateActive colour
   button <- GTK.buttonNew
+  GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 48000 48000 65535)
+  GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 16383 16383 16383)
+  GTK.widgetModifyBg button GTK.StateSelected (GTK.Color 16383 16383 16383)
+  GTK.widgetModifyBg button GTK.StateActive (GTK.Color 65535 48000 48000)
 
   GTK.widgetSetName button title
   GTK.containerAdd button label
@@ -307,6 +319,7 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   -- close tab button
   cl <- GTK.labelNew $ Just "Close"
   setLabelTextSize cl closeTextSize
+
   cb <- GTK.buttonNew
   setButtonColours cb closeButtonColours
   GTK.containerAdd cb cl
