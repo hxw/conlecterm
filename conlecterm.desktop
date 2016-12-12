@@ -2,7 +2,7 @@
 Categories=System;TerminalEmulator;
 Comment[en_GB]=Multi tabbed terminal handler
 Comment=Multi tabbed terminal handler
-Exec=Conlecterm
+Exec=conlecterm
 GenericName[en_GB]=Conlecterm
 GenericName=Conlecterm
 Icon=utilities-terminal
