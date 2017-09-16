@@ -9,7 +9,7 @@
 # to be used for project dependencies. For example:
 #
 # this can give some indication of valid LTS versions:
-#   curl https://www.stackage.org/ | grep LTS
+#   curl -s https://www.stackage.org/ | grep LTS
 #
 # resolver: lts-3.5
 # resolver: nightly-2015-09-21
@@ -18,7 +18,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-9.2
+resolver: lts-9.4
 #resolver: lts-7.24
 
 # User packages to be built.
