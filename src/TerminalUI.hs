@@ -56,25 +56,24 @@ compileConfigs configFileName sessionFileName = do
                return $ Just (name, orient, tabList, h)
 
 
-run :: String -> String -> Bool -> IO (Maybe String)
-run configFileName sessionFileName verbose = do
+run :: String -> String -> String -> Bool -> IO (Maybe String)
+run configFileName cssFileName sessionFileName verbose = do
 
   r <- compileConfigs configFileName sessionFileName
   case r of
     Nothing -> return $ Just "error in configuration file"
     Just session -> do
-           run' configFileName sessionFileName session verbose
+           run' configFileName cssFileName sessionFileName session verbose
            return Nothing
 
-run' :: String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> Bool -> IO ()
-run' configFileName sessionFileName (sessionName, orient, tabList, _h) verbose = do
+run' :: String -> String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> Bool -> IO ()
+run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _h) verbose = do
 
   _ <- GTK.initGUI
 
-
   -- create a css provider for the buttons
   css <- CSS.cssProviderNew
-  CSS.cssProviderLoadFromPath css "conlecterm.css"
+  CSS.cssProviderLoadFromPath css cssFileName
 
   screen <- Screen.screenGetDefault
   case screen of

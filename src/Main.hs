@@ -28,6 +28,9 @@ defaultSessionFile = "default.session"
 configurationFile :: String
 configurationFile = "config.rc"
 
+cssFile :: String
+cssFile = "conlecterm.css"
+
 
 -- main program
 main :: IO ()
@@ -50,12 +53,14 @@ main = do
   let startSession = if length arguments == 0 then defaultSessionFile else (arguments !! 0)
 
   let configFile = combine configDirectory configurationFile
+  let styleFile = combine configDirectory cssFile
   let sessionFile = combine configDirectory $ startSession
   if verbose
     then do
       hPutStrLn stderr $ "requested session: " ++ (show session)
       hPutStrLn stderr $ "start session:     " ++ (show startSession)
       hPutStrLn stderr $ "config file:       " ++ configFile
+      hPutStrLn stderr $ "CSS file:          " ++ styleFile
       hPutStrLn stderr $ "session file:      " ++ sessionFile
     else return ()
 
@@ -68,12 +73,17 @@ main = do
     False -> usage ["missing configuration file: ", configFile]
     True -> return ()
 
+  haveStyle <- fileExist styleFile
+  case haveStyle of
+    False -> usage ["missing CSS file: ", styleFile]
+    True -> return ()
+
   haveSession <- fileExist sessionFile
   case haveSession of
     False -> usage ["missing session file: ", sessionFile]
     True -> return ()
 
-  message <- TU.run configFile sessionFile verbose
+  message <- TU.run configFile styleFile sessionFile verbose
   case message of
     Nothing -> exitSuccess
     Just errorMessage -> usage ["error formUI: ", errorMessage]
