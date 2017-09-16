@@ -8,11 +8,11 @@ import Data.Foldable( foldlM )
 import Data.List( find )
 import Control.Monad (when)
 import Control.Monad.Trans( liftIO )
---import System.Process( ProcessHandle )
---import System.IO
 
 import qualified Graphics.UI.Gtk as GTK
-import Graphics.Rendering.Pango as Pango
+import qualified Graphics.UI.Gtk.Gdk.Screen as Screen
+import qualified Graphics.UI.Gtk.General.StyleContext as CTX
+import qualified Graphics.UI.Gtk.General.CssProvider as CSS
 
 import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
@@ -31,38 +31,6 @@ orientation SP.LeftTabs   = GTK.PosLeft
 orientation SP.RightTabs  = GTK.PosRight
 orientation SP.TopTabs    = GTK.PosTop
 orientation SP.BottomTabs = GTK.PosBottom
-
-
--- text sizes and weights
-tabTextSize :: (Double, Weight)
-tabTextSize = (11, Pango.WeightBold)
-
-buttonTextSize :: (Double, Weight)
-buttonTextSize = (16, Pango.WeightMedium)
-
-startTextSize :: (Double, Weight)
-startTextSize = (64, Pango.WeightBold)
-
-closeTextSize :: (Double, Weight)
-closeTextSize = (32, Pango.WeightBold)
-
-
--- colours for buttons
-type Colours = (GTK.Color, GTK.Color, GTK.Color)
-
-startButtonColours :: Colours
-startButtonColours = (startNormalColour, startHoverColour, startActiveColour)
-    where
-      startNormalColour = GTK.Color 10000 20000 10000
-      startHoverColour  = GTK.Color 16383 32767 16383
-      startActiveColour = GTK.Color 32767 65535 32767
-
-closeButtonColours :: Colours
-closeButtonColours = (closeNormalColour, closeHoverColour, closeActivecolour)
-    where
-      closeNormalColour = GTK.Color 20000 10000 10000
-      closeHoverColour  = GTK.Color 32767 16383 16383
-      closeActivecolour = GTK.Color 65535 32767 32767
 
 
 -- compile the configuration
@@ -88,28 +56,41 @@ compileConfigs configFileName sessionFileName = do
                return $ Just (name, orient, tabList, h)
 
 
-run :: String -> String -> IO (Maybe String)
-run configFileName sessionFileName = do
+run :: String -> String -> Bool -> IO (Maybe String)
+run configFileName sessionFileName verbose = do
 
   r <- compileConfigs configFileName sessionFileName
   case r of
     Nothing -> return $ Just "error in configuration file"
     Just session -> do
-           run' configFileName sessionFileName session
+           run' configFileName sessionFileName session verbose
            return Nothing
 
-run' :: String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> IO ()
-run' configFileName sessionFileName (sessionName, orient, tabList, _h) = do
+run' :: String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> Bool -> IO ()
+run' configFileName sessionFileName (sessionName, orient, tabList, _h) verbose = do
 
   _ <- GTK.initGUI
 
+
+  -- create a css provider for the buttons
+  css <- CSS.cssProviderNew
+  CSS.cssProviderLoadFromPath css "conlecterm.css"
+
+  screen <- Screen.screenGetDefault
+  case screen of
+    Nothing -> return ()
+    Just scn -> CTX.styleContextAddProviderForScreen scn css 800
+
   toplevel <- GTK.windowNew
   notebook <- GTK.notebookNew
+  GTK.widgetSetName notebook "conlecterm"
 
   _ <- GTK.on notebook GTK.pageReordered $ reordered notebook
 
   GTK.notebookSetTabPos notebook $ orientation orient
-  GTK.notebookSetHomogeneousTabs notebook True
+--  GTK.set notebook [GTK.notebookHomogeneous GTK.:= True]
+--  GTK.set notebook [GTK.notebookTabVborder GTK.:= 0]
+  GTK.set notebook [GTK.notebookScrollable GTK.:= True]
 
   GTK.windowSetDefaultSize toplevel 800 600
   GTK.set toplevel [GTK.windowTitle GTK.:= initialTitle]
@@ -121,22 +102,31 @@ run' configFileName sessionFileName (sessionName, orient, tabList, _h) = do
   availableIcons <-mapM (\iconName ->  do
              exists <- GTK.iconThemeHasIcon theme iconName
              return (iconName, exists)) iconNameList
-  -- putStrLn $ "icons = " ++ (show availableIcons)
 
   -- if an icon is found assign it to toplevel window
   let theIcon = find (\ (_name, exists) -> exists) availableIcons
-  -- putStrLn $ "icon = " ++ (show theIcon)
+
+  if verbose
+    then do
+      putStrLn $ "available icons: " ++ (show availableIcons)
+      putStrLn $ "selected icon:   " ++ (show theIcon)
+    else
+      return ()
+
   case theIcon of
     Nothing -> return ()
     Just (iconName, _) ->  do
       GTK.windowSetDefaultIconName iconName
-      GTK.windowSetIconName toplevel iconName
+      GTK.set toplevel [GTK.windowIconName GTK.:= iconName]
 
   toplevel `GTK.containerAdd` notebook
   GTK.widgetShowAll toplevel
 
   -- set up page switcher
   table <- GTK.tableNew 4 4 True
+  ctxTable <- GTK.widgetGetStyleContext table
+  CTX.styleContextAddClass ctxTable "new_table"
+
   _ <- GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName
   GTK.widgetSetCanFocus notebook False
 
@@ -144,8 +134,12 @@ run' configFileName sessionFileName (sessionName, orient, tabList, _h) = do
   GTK.widgetShowAll table
   _buttonPage <- GTK.notebookAppendPage notebook table "+NEW"
   tabLabel <- GTK.notebookGetTabLabel notebook table
-  setTabTextColour tabLabel $ Just (GTK.Color 32767 0 32767)
-  setTabTextSize tabLabel tabTextSize
+
+  case tabLabel of
+    Nothing -> return ()
+    Just tl -> do
+      ctxNew <- GTK.widgetGetStyleContext tl
+      CTX.styleContextAddClass ctxNew "new_tab"
 
   -- create all the initial table
   mapM_ (\tab ->  do
@@ -153,7 +147,7 @@ run' configFileName sessionFileName (sessionName, orient, tabList, _h) = do
             addPane notebook title start dir command sendList running stopped) tabList
 
   -- link up the close button
-  _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit sessionName sessionFileName orient notebook
+  _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit toplevel sessionName sessionFileName orient notebook
 
   -- start the GTK event loop
   GTK.mainGUI
@@ -189,12 +183,12 @@ createButtons configFileName table notebook = do
 
 
 -- do not allow exit if still some tabs are open
-checkExit :: String ->  String -> SP.Orientation -> GTK.Notebook -> IO Bool
-checkExit sessionName sessionFileName orient notebook = do
+checkExit :: GTK.Window -> String ->  String -> SP.Orientation -> GTK.Notebook -> IO Bool
+checkExit window sessionName sessionFileName orient notebook = do
   saveSession
   active <- PR.activeProcs
   let continue = active > 0
-  if continue then exitNotice else GTK.mainQuit
+  if continue then exitNotice window else GTK.mainQuit
   return $ continue
 
   where
@@ -214,9 +208,9 @@ checkExit sessionName sessionFileName orient notebook = do
 
 
 -- dialog warning about acive tabs
-exitNotice :: IO ()
-exitNotice = do
-  dialog <- GTK.messageDialogNew Nothing [GTK.DialogDestroyWithParent] GTK.MessageWarning GTK.ButtonsOk "Some tabs are still active"
+exitNotice :: GTK.Window -> IO ()
+exitNotice window = do
+  dialog <- GTK.messageDialogNew (Just window) [GTK.DialogDestroyWithParent] GTK.MessageWarning GTK.ButtonsOk "Some tabs are still active"
   _response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
 
@@ -225,60 +219,14 @@ exitNotice = do
 addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
 addButton table x y notebook title autoStart dir commandList sendList running stopped = do
   label <- GTK.labelNew $ Just title
-  setLabelTextSize label buttonTextSize
+  ctx1 <- GTK.widgetGetStyleContext label
+  CTX.styleContextAddClass ctx1 "item_button"
+  setTabTextColour (Just (GTK.castToWidget label)) running False
 
-  case running of
-    Nothing -> return ()
-    Just colour -> do
-      GTK.widgetModifyFg label GTK.StateNormal colour
-      GTK.widgetModifyFg label GTK.StateSelected colour
-      GTK.widgetModifyFg label GTK.StatePrelight colour
-      GTK.widgetModifyFg label GTK.StateActive colour
   button <- GTK.buttonNew
-  GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 48000 48000 65535)
-  GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 16383 16383 16383)
-  GTK.widgetModifyBg button GTK.StateSelected (GTK.Color 16383 16383 16383)
-  GTK.widgetModifyBg button GTK.StateActive (GTK.Color 65535 48000 48000)
 
   GTK.widgetSetName button title
   GTK.containerAdd button label
-
-
-  -- let r = case running of
-  --           Nothing -> GTK.Color 32767 32767 32767
-  --           Just colour -> colour
-  -- let s = case stopped of
-  --           Nothing -> GTK.Color 8191 9191 32767
-  --           Just colour -> colour
-
-  -- putStrLn $ "r = " ++ (show r)
-  -- putStrLn $ "s = " ++ (show s)
-
-  -- c <- GTK.containerGetChildren button
-  -- case c of
-  --   [] -> return ()
-  --   label2:_ -> do
-  --          GTK.widgetModifyFg label2 GTK.StateNormal r
-  --          GTK.widgetModifyFg label2 GTK.StatePrelight r
-  --          GTK.widgetModifyFg label2 GTK.StateSelected r
-  --          GTK.widgetModifyFg label2 GTK.StateActive r
-
-  -- GTK.widgetModifyBg label GTK.StateNormal (GTK.Color 65000 65000 65000)
-  -- GTK.widgetModifyFg label GTK.StateNormal (GTK.Color 65000 65000 65000)
-  -- GTK.widgetModifyText label GTK.StateNormal (GTK.Color 65000 65000 65000)
-  -- GTK.widgetModifyFg button GTK.StateNormal (GTK.Color 65000 65000 65000)
-  -- GTK.widgetModifyText button GTK.StateNormal (GTK.Color 65000 65000 65000)
-
-
-  -- GTK.widgetModifyBg button GTK.StateNormal r
-  -- GTK.widgetModifyBg button GTK.StatePrelight s
-  -- GTK.widgetModifyBg button GTK.StateSelected s
-  --GTK.widgetModifyBg button GTK.StateActive r
-
-  --GTK.widgetModifyBg button GTK.StateNormal (GTK.Color 32000 32000 40000)
-  --GTK.widgetModifyBg button GTK.StatePrelight (GTK.Color 8191 8191 20000)
-  --GTK.widgetModifyBg button GTK.StateSelected (GTK.Color 8191 8191 20000)
-  -- GTK.widgetModifyBg button GTK.StateActive (GTK.Color 10000 58000 60000)
 
   _ <- GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
 
@@ -308,30 +256,30 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
   let rows = 10
   let columns = 5
   buttonBox <- GTK.tableNew rows columns False
-  --GTK.widgetShowAll table
 
-  -- -- close tab button
-  -- cb <- GTK.buttonNewWithLabel "Close"
-  -- GTK.widgetModifyBg cb GTK.StatePrelight (GTK.Color 65535 32767 32767)
-  -- _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
-  -- GTK.widgetShowAll cb
-
-  -- close tab button
+  -- close button
   cl <- GTK.labelNew $ Just "Close"
-  setLabelTextSize cl closeTextSize
+  ctxCL <- GTK.widgetGetStyleContext cl
+  CTX.styleContextAddClass ctxCL "close_button"
 
   cb <- GTK.buttonNew
-  setButtonColours cb closeButtonColours
+  ctxCB <- GTK.widgetGetStyleContext cb
+  CTX.styleContextAddClass ctxCB "close_button"
+
   GTK.containerAdd cb cl
 
   _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
   GTK.widgetShowAll cb
 
-  -- start/restart button
+  -- start button
   sl <- GTK.labelNew $ Just "Start"
-  setLabelTextSize sl startTextSize
+  ctxSL <- GTK.widgetGetStyleContext sl
+  CTX.styleContextAddClass ctxSL "start_button"
+
   sb <- GTK.buttonNew
-  setButtonColours sb startButtonColours
+  ctxSB <- GTK.widgetGetStyleContext sb
+  CTX.styleContextAddClass ctxSB "start_button"
+
   GTK.containerAdd sb sl
 
   _ <- GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
@@ -347,8 +295,13 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
 
   page <- GTK.notebookAppendPage notebook vbox title
   tabLabel <- GTK.notebookGetTabLabel notebook vbox
-  setTabTextColour tabLabel stopped
-  setTabTextSize tabLabel tabTextSize
+
+  case tabLabel of
+    Nothing -> return ()
+    Just tl -> do
+      ctxTL <- GTK.widgetGetStyleContext tl
+      CTX.styleContextAddClass ctxTL "item_tab"
+  setTabTextColour tabLabel stopped False
 
   -- new page is reordereable
   GTK.notebookSetTabReorderable notebook vbox True
@@ -406,11 +359,11 @@ plug tabLabel colour socket sendList = do
   return ()
 
 
--- dummy routine to send a couple of test lines
+-- routine to send the text lines
 delayedSend :: Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket -> [String] -> IO Bool
 delayedSend tabLabel colour socket sendList = do
   mapM_ (SC.sendLine socket) sendList
-  setTabTextColour tabLabel colour
+  setTabTextColour tabLabel colour True
   return False
 
 
@@ -423,39 +376,20 @@ unplug otherButtons tabLabel colour socket refproc = do
 
   GTK.widgetShowAll otherButtons
 
-  setTabTextColour tabLabel colour
+  setTabTextColour tabLabel colour False
 
   return True
 
 
--- set the colours of a button
-setButtonColours :: GTK.Button -> Colours -> IO ()
-setButtonColours button (normal, hover, active) = do
-  GTK.widgetModifyBg button GTK.StateNormal normal
-  GTK.widgetModifyBg button GTK.StatePrelight hover
-  GTK.widgetModifyBg button GTK.StateSelected hover
-  GTK.widgetModifyBg button GTK.StateActive active
-
-
 -- set the text colour of a tab label
-setTabTextColour :: Maybe GTK.Widget -> Maybe GTK.Color -> IO ()
-setTabTextColour (Just tabLabel) (Just colour) = do
+setTabTextColour :: Maybe GTK.Widget -> Maybe GTK.Color -> Bool -> IO ()
+setTabTextColour (Just tabLabel) (Just colour) running = do
   GTK.widgetModifyFg tabLabel GTK.StateNormal colour
   GTK.widgetModifyFg tabLabel GTK.StateActive colour
-setTabTextColour _ _ = return ()
-
-
--- set font size/weight of a tab label
-setTabTextSize :: Maybe GTK.Widget -> (Double, Weight) -> IO ()
-setTabTextSize (Just tabLabel) (fontSize, fontWeight) = do
-  let label = GTK.castToLabel tabLabel
-  setLabelTextSize label (fontSize, fontWeight)
-setTabTextSize _ _ = return ()
-
-setLabelTextSize :: GTK.Label -> (Double, Weight) -> IO ()
-setLabelTextSize label (fontSize, fontWeight) = do
-  --GTK.labelSetAttributes label [Pango.AttrWeight 0 999 fontWeight, Pango.AttrSize 0 999 fontSize, Pango.AttrForeground 0 999 (GTK.Color 0 0 0)]
-  GTK.labelSetAttributes label [Pango.AttrWeight 0 999 fontWeight, Pango.AttrSize 0 999 fontSize]
+  ctxTab <- GTK.widgetGetStyleContext tabLabel
+  if running then CTX.styleContextAddClass ctxTab "running"
+             else CTX.styleContextRemoveClass ctxTab "running"
+setTabTextColour _ _ _ = return ()
 
 
 -- change the main title to be the tab name

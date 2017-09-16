@@ -53,10 +53,10 @@ main = do
   let sessionFile = combine configDirectory $ startSession
   if verbose
     then do
-      hPutStrLn stderr $ "requested session = " ++ (show session)
-      hPutStrLn stderr $ "start session     = " ++ (show startSession)
-      hPutStrLn stderr $ "config file       = " ++ configFile
-      hPutStrLn stderr $ "session file      = " ++ sessionFile
+      hPutStrLn stderr $ "requested session: " ++ (show session)
+      hPutStrLn stderr $ "start session:     " ++ (show startSession)
+      hPutStrLn stderr $ "config file:       " ++ configFile
+      hPutStrLn stderr $ "session file:      " ++ sessionFile
     else return ()
 
   case configDirectory of
@@ -73,7 +73,7 @@ main = do
     False -> usage ["missing session file: ", sessionFile]
     True -> return ()
 
-  message <- TU.run configFile sessionFile
+  message <- TU.run configFile sessionFile verbose
   case message of
     Nothing -> exitSuccess
     Just errorMessage -> usage ["error formUI: ", errorMessage]

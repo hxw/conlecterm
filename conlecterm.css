@@ -1,0 +1,169 @@
+/*
+** conlecterm.css
+*/
+
+
+/* controls the minimum size/border of the tab */
+#conlecterm header tab > box,   
+#conlecterm header tab > label,
+#conlecterm header tab > widget > box {
+  padding: 4px 8px; 
+  min-width: 100px;
+  border-width: 1px; 
+  border-style: solid;
+  border-color: grey66;
+  transition: border-color .2s linear;
+}
+
+/* controls button padding and table border */
+#conlecterm button {
+  padding: 0px 0px;       
+  border-width: 1px;     
+  border-style: solid;    
+  border-color: grey60;    
+}
+
+/* background when insufficien tabs to fill bar */
+#conlecterm header > tabs {
+  background-image: none;
+  background-color: wheat3;
+}
+
+
+/* arrow background */
+
+#conlecterm header > tabs > arrow,
+#conlecterm header > tabs > arrow:disabled,
+#conlecterm header > tabs > arrow:focus {
+  background-color: grey60;
+  color: black;
+}
+#conlecterm header > tabs > arrow:active {
+  background-color: grey80;
+  color: black;
+}
+
+#conlecterm header > tabs > arrow:hover,
+#conlecterm header > tabs > arrow:active:hover {
+  background-color: grey90;
+  color: black;
+}
+
+
+/* fixed position tabs */
+
+#conlecterm header > tabs > tab {
+  font-size: 12pt;
+  background-color: lightblue;
+}
+
+#conlecterm header > tabs > tab:hover {
+  background-color: pink;
+}
+
+#conlecterm header > tabs > tab:checked {
+  background-color: peachpuff;
+}
+
+#conlecterm header > tabs > tab:checked:hover {
+  background-color: hotpink;
+}
+
+/* moveable tabs */
+
+#conlecterm header > tabs > tab.reorderable-page {
+  background-color: skyblue;
+}
+
+#conlecterm header > tabs > tab.reorderable-page:hover {
+  background-color: pink;
+}
+
+#conlecterm header > tabs > tab.reorderable-page:checked {
+  background-color: plum;
+}
+
+#conlecterm header > tabs > tab.reorderable-page:checked:hover {
+  background-color: hotpink;
+}
+
+#conlecterm header > tabs > tab label.running {
+  font-weight: bold;
+  font-size: 13pt;
+  background: rgba(255,240,255,0.3);
+}
+
+
+/* buttons for start/close */
+
+#conlecterm stack > box {
+  background-image: none;
+  background-color: mistyrose;
+}
+
+#conlecterm stack .start_button {
+  background-color: darkgreen;
+  font-size: 90pt;
+  font-weight: bold;
+  color: darkseagreen;
+  border-color: black;
+}
+
+#conlecterm button:hover .start_button {
+  color: lightgreen;
+  background-color: green4;
+  border-color: black;
+}
+
+#conlecterm button:hover:active .start_button {
+  color: darkgreen;
+  background-color: green3;
+  border-color: black;
+}
+
+#conlecterm stack .close_button {
+  background-color: darkred;
+  font-size: 20pt;
+  font-weight: bold;
+  color: red;
+  border-width: 0px;
+  border-color: black;
+}
+
+#conlecterm button:hover .close_button {
+  color: red;
+  background-color: tomato;
+  border-color: black;
+}
+
+#conlecterm button:hover:active .close_button {
+  color: white;
+  background-color: rgb(255,0,0);
+  border-color: black;
+}
+
+
+/* all items in the +NEW page */
+
+#conlecterm stack {
+  background-image: none;
+  background-color: LightYellow3;
+}
+
+#conlecterm .item_button {
+  font-size: 20pt;
+  background-color: darkturquoise;
+  border-style: none;
+  border-color: red;
+  border-width: 0px;
+}
+
+#conlecterm button:hover .item_button {
+  background-color: mistyrose1;
+  border-color: black;
+}
+
+#conlecterm button:hover:active .item_button {
+  background-color: steelblue;
+  border-color: black;
+}
