@@ -1,14 +1,14 @@
 [Desktop Entry]
+Type=Application
+Version=1.0
+Encoding=UTF-8
 Categories=System;TerminalEmulator;
 Comment[en_GB]=Multi tabbed terminal handler
 Comment=Multi tabbed terminal handler
 Exec=conlecterm
-GenericName[en_GB]=Conlecterm
-GenericName=Conlecterm
+GenericName[en_GB]=Multi tabbed terminal handler
+GenericName=Multi tabbed terminal handler
 Icon=utilities-terminal
-MimeType=
 Name[en_GB]=Conlecterm
 Name=Conlecterm
-StartupNotify=true
 Terminal=false
-Type=Application
