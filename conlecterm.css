@@ -25,6 +25,11 @@
 
 /* background when insufficien tabs to fill bar */
 #conlecterm header > tabs {
+  margin: 0px;
+  padding: 0px;
+  border-width: 0px;
+  border-style: none;
+  border-color: red;
   background-image: none;
   background-color: wheat3;
 }
@@ -53,7 +58,10 @@
 /* fixed position tabs */
 
 #conlecterm header > tabs > tab {
+  margin: 0px;
+  padding: 0px;
   font-size: 12pt;
+  font-weight: normal;
   background-color: lightblue;
 }
 
