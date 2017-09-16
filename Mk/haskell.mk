@@ -108,11 +108,14 @@ setup: ${CABAL_SANDBOX}
 ${CABAL_SANDBOX}:
 	${CABAL} sandbox init
 	${CABAL} update
+	${CABAL} install Cabal
 	${CABAL} install alex
 	${CABAL} install happy
 .if "YES" == "${USE_GTK}"
+	${CABAL} install hashtables
 	${CABAL} install gtk2hs-buildtools
 .endif
+
 
 # list the local repository pacakages with versions
 # this is all packackes currently cached
