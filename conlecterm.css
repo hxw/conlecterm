@@ -3,35 +3,38 @@
 */
 
 /* add colour to tab if running */
-/* class name is tab title with space -> "_" */
-.Project_1.item_button,
-.Project_1.running {
+/* class name is tab title with non-leter/digit -> "_" */
+.TAB_Project_1.item_button,
+.TAB_Project_1.running {
   color: brown;
 }
-.Project_2.item_button,
-.Project_2.running {
+.TAB_Project_2.item_button,
+.TAB_Project_2.running {
   color: red;
 }
-.Project_3.item_button,
-.Project_3.running {
+.TAB_Project_3.item_button,
+.TAB_Project_3.running {
   color: orange;
 }
-.Project_4.item_button,
-.Project_4.running {
+.TAB_Project_4.item_button,
+.TAB_Project_4.running {
   color: yellow;
 }
-.Project_5.item_button,
-.Project_5.running {
+.TAB_Project_5.item_button,
+.TAB_Project_5.running {
   color: green;
 }
-.shell.item_button,
-.shell.running {
+.TAB_shell.item_button,
+.TAB_shell.running {
   color: blue;
 }
-.EMACS.item_button,
-.EMACS.running {
+.TAB_EMACS.item_button,
+.TAB_EMACS.running {
   color: violet;
 }
+
+
+/* widget CSS */
 
 #conlecterm header {
   outline-width: 0px;

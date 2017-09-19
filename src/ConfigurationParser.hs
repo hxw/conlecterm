@@ -8,7 +8,7 @@ module ConfigurationParser where
 import Data.Maybe (isJust, isNothing, fromMaybe, fromJust)
 import Data.Foldable (foldlM)
 import Data.List (sortBy)
-import Data.Char (isSpace)
+import qualified Data.Char as CHR
 import Data.Text (pack, toLower)
 import Text.Parsec.Prim (ParsecT)
 import Text.ParserCombinators.Parsec
@@ -535,8 +535,13 @@ expandPanes (hashCmd, hashPane) tabs = do
                                            , paneSend  = send
                                            } = paneInfo
                             command <- HT.lookup hashCmd pRun
-                            let cssClass = map (\c -> if isSpace c then '_' else c) title
+                            let cssClass = "TAB_" ++ (map makeClassName title)
                             return $ Just (title, start, dir, fromJust command, send, cssClass)
+        makeClassName :: Char -> Char
+        makeClassName c
+            | CHR.isLetter c = c
+            | CHR.isDigit c  = c
+        makeClassName _ = '_'
 
 -- get a sorted list of all the tab names
 -- (case insensitive sort)
