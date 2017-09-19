@@ -2,29 +2,45 @@
 ** conlecterm.css
 */
 
+#conlecterm header {
+  outline-width: 0px;
+  margin: 0px;
+  padding: 0px;
+  min-width: 0px;
+  min-height: 0px;
+  border-width: 0px;
+  border-style: none;
+  border-color: red;
+}
+
 
 /* controls the minimum size/border of the tab */
-#conlecterm header tab > box,   
+#conlecterm header tab > box,
 #conlecterm header tab > label,
 #conlecterm header tab > widget > box {
-  padding: 4px 8px; 
+  outline-width: 0px;
+  padding: 1px;
+  margin: 0px;
   min-width: 100px;
-  border-width: 1px; 
+  min-height: 22px;
+  border-width: 0px 0px 1px 0px;
   border-style: solid;
-  border-color: grey66;
-  transition: border-color .2s linear;
+  border-color: grey20;
+  /*transition: border-color .2s linear;*/
 }
 
 /* controls button padding and table border */
 #conlecterm button {
-  padding: 0px 0px;       
-  border-width: 1px;     
-  border-style: solid;    
-  border-color: grey60;    
+  margin: 0px;
+  padding: 0px;
+  border-width: 1px;
+  border-style: solid;
+  border-color: grey60;
 }
 
-/* background when insufficien tabs to fill bar */
+/* background when insufficient tabs to fill bar */
 #conlecterm header > tabs {
+  outline-width: 0px;
   margin: 0px;
   padding: 0px;
   border-width: 0px;
@@ -40,6 +56,13 @@
 #conlecterm header > tabs > arrow,
 #conlecterm header > tabs > arrow:disabled,
 #conlecterm header > tabs > arrow:focus {
+  outline-width: 0px;
+  margin: 0px;
+  padding: 0px;
+  min-height: 15px;
+  border-width: 0px;
+  border-style: none;
+  border-color: red;
   background-color: grey60;
   color: black;
 }
@@ -58,11 +81,14 @@
 /* fixed position tabs */
 
 #conlecterm header > tabs > tab {
+  outline-width: 0px;
+  min-height: 0px;
   margin: 0px;
   padding: 0px;
-  font-size: 12pt;
-  font-weight: normal;
-  background-color: lightblue;
+  font-size: 10pt;
+  font-weight: bold;
+  color: darkblue;
+  background-color: LightSteelBlue2;
 }
 
 #conlecterm header > tabs > tab:hover {
@@ -80,7 +106,7 @@
 /* moveable tabs */
 
 #conlecterm header > tabs > tab.reorderable-page {
-  background-color: skyblue;
+  background-color: LightSteelBlue;
 }
 
 #conlecterm header > tabs > tab.reorderable-page:hover {
@@ -97,7 +123,8 @@
 
 #conlecterm header > tabs > tab label.running {
   font-weight: bold;
-  font-size: 13pt;
+  font-style: italic;
+  font-size: 11pt;
   background: rgba(255,240,255,0.3);
 }
 
@@ -160,7 +187,7 @@
 
 #conlecterm .item_button {
   font-size: 20pt;
-  background-color: darkturquoise;
+  background-color:  LightSteelBlue2;
   border-style: none;
   border-color: red;
   border-width: 0px;
