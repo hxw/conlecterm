@@ -5,3 +5,4 @@ session-*.rc
 cabal.sandbox.config
 dist/
 local-*
+.stack-*/

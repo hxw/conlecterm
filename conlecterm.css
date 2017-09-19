@@ -2,6 +2,37 @@
 ** conlecterm.css
 */
 
+/* add colour to tab if running */
+/* class name is tab title with space -> "_" */
+.Project_1.item_button,
+.Project_1.running {
+  color: brown;
+}
+.Project_2.item_button,
+.Project_2.running {
+  color: red;
+}
+.Project_3.item_button,
+.Project_3.running {
+  color: orange;
+}
+.Project_4.item_button,
+.Project_4.running {
+  color: yellow;
+}
+.Project_5.item_button,
+.Project_5.running {
+  color: green;
+}
+.shell.item_button,
+.shell.running {
+  color: blue;
+}
+.EMACS.item_button,
+.EMACS.running {
+  color: violet;
+}
+
 #conlecterm header {
   outline-width: 0px;
   margin: 0px;

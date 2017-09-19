@@ -6,16 +6,15 @@
 module ConfigurationParser where
 
 import Data.Maybe (isJust, isNothing, fromMaybe, fromJust)
-import Data.Foldable (foldlM )
-import Data.List (sortBy )
-import Data.Text (pack, toLower )
+import Data.Foldable (foldlM)
+import Data.List (sortBy)
+import Data.Char (isSpace)
+import Data.Text (pack, toLower)
 import Text.Parsec.Prim (ParsecT)
 import Text.ParserCombinators.Parsec
 import qualified Text.ParserCombinators.Parsec.Token as P
 import qualified Text.Parsec.Prim as N
 import Text.ParserCombinators.Parsec.Language
-
-import qualified Graphics.UI.Gtk as GTK
 
 import System.IO
 import System.Posix.Files (fileExist)
@@ -40,16 +39,12 @@ type CommandList = [CommandItem]
 
 type SendList  = [String]
 
-type Colour = GTK.Color
-
 data PaneRecord =
   PaneRecord { paneTitle   :: String
              , paneAuto    :: Bool
              , paneDir     :: Maybe String
              , paneRun     :: String
              , paneSend    :: SendList
-             , paneRunning :: Maybe Colour
-             , paneStopped :: Maybe Colour
              } deriving Show
 
 
@@ -67,8 +62,6 @@ data UserState =
             , usCurrentPaneRun     :: Maybe String
             , usCurrentPaneDir     :: Maybe String
             , usCurrentPaneSend    :: SendList
-            , usCurrentPaneRunning :: Maybe Colour
-            , usCurrentPaneStopped :: Maybe Colour
             }
 
 initUserState :: CommandHash -> PaneHash -> UserState
@@ -81,8 +74,6 @@ initUserState cmdHT paneHT =
             , usCurrentPaneRun     = Nothing
             , usCurrentPaneDir     = Nothing
             , usCurrentPaneSend    = []
-            , usCurrentPaneRunning = Nothing
-            , usCurrentPaneStopped = Nothing
             }
 
 
@@ -297,8 +288,6 @@ paneSetup title = do
                , usCurrentPaneDir   = Nothing
                , usCurrentPaneRun   = Nothing
                , usCurrentPaneSend  = []
-               , usCurrentPaneRunning = Nothing
-               , usCurrentPaneStopped = Nothing
                }
   setState sNew
 
@@ -318,8 +307,6 @@ paneCompile _pos title = do
                     , usCurrentPaneDir   = dir
                     , usCurrentPaneRun   = pRun
                     , usCurrentPaneSend  = send
-                    , usCurrentPaneRunning = running
-                    , usCurrentPaneStopped = stopped
                     } = s
 
       let pane = PaneRecord { paneTitle = title
@@ -327,8 +314,6 @@ paneCompile _pos title = do
                             , paneRun   = fromJust pRun
                             , paneDir   = dir
                             , paneSend  = send
-                            , paneRunning = running
-                            , paneStopped = stopped
                             }
 
       lift $ HT.insert hPane title pane
@@ -429,41 +414,6 @@ sendCompile _pos str = do
   setState sNew
 
 
-runningSetup :: MyParser SourcePos
-runningSetup = do
-  s <- getState
-  blockStartPos <- getPosition
-  let UserState { usCurrentPaneRunning = n } = s
-  if isNothing n then return ()
-    else warning "duplicate running option"
-  return blockStartPos
-
-
-runningCompile :: SourcePos -> Colour -> MyParser ()
-runningCompile _pos colour = do
-  s <- getState
-  let sNew = s { usCurrentPaneRunning = Just colour }
-  setState sNew
-
-
-stoppedSetup :: MyParser SourcePos
-stoppedSetup = do
-  blockStartPos <- getPosition
-  s <- getState
-  let UserState { usCurrentPaneStopped = n } = s
-  if isNothing n then return ()
-    else warning "duplicate stopped option"
-  return blockStartPos
-
-
-stoppedCompile :: SourcePos -> Colour -> MyParser ()
-stoppedCompile _pos colour = do
-  s <- getState
-  let sNew = s { usCurrentPaneStopped = Just colour }
-  setState sNew
-
-
-
 paneItem :: MyParser ()
 paneItem =
   do
@@ -486,31 +436,7 @@ paneItem =
     state <- sendSetup
     s <- stringLiteral
     sendCompile state s
-  <|> do
-    reserved "running"
-    state <- runningSetup
-    c <- colourItem
-    runningCompile state c
-  <|> do
-    reserved "stopped"
-    state <- stoppedSetup
-    c <- colourItem
-    stoppedCompile state c
   <?> "pane item"
-
-
-colourItem :: MyParser Colour
-colourItem = do
-  (reserved "colour" <|> reserved "color")
-  parens triplet
-  where
-    triplet = do
-      red <- natural
-      _ <- comma
-      green <- natural
-      _ <- comma
-      blue <- natural
-      return $ GTK.Color (fromIntegral red) (fromIntegral green) (fromIntegral blue)
 
 
 -- parser setup and run
@@ -584,7 +510,7 @@ compileOne hashes configFileName = do
 
 
 -- simple tuple type for returning the expanded session
-type PaneInfo = (String, Bool, Maybe String, CommandList, SendList, Maybe Colour, Maybe Colour)
+type PaneInfo = (String, Bool, Maybe String, CommandList, SendList, String)
 
 
 -- get a list of panes from a list of tab names
@@ -607,11 +533,10 @@ expandPanes (hashCmd, hashPane) tabs = do
                                            , paneDir   = dir
                                            , paneRun   = pRun
                                            , paneSend  = send
-                                           , paneRunning = running
-                                           , paneStopped = stopped
                                            } = paneInfo
                             command <- HT.lookup hashCmd pRun
-                            return $ Just (title, start, dir, fromJust command, send, running, stopped)
+                            let cssClass = map (\c -> if isSpace c then '_' else c) title
+                            return $ Just (title, start, dir, fromJust command, send, cssClass)
 
 -- get a sorted list of all the tab names
 -- (case insensitive sort)

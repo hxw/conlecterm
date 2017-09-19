@@ -142,8 +142,8 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
 
   -- create all the initial table
   mapM_ (\tab ->  do
-            let (title, start, dir, command, sendList, running, stopped) = tab
-            addPane notebook title start dir command sendList running stopped) tabList
+            let (title, start, dir, command, sendList, cssClass) = tab
+            addPane notebook title start dir command sendList cssClass) tabList
 
   -- link up the close button
   _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit toplevel sessionName sessionFileName orient notebook
@@ -172,8 +172,8 @@ createButtons configFileName table notebook = do
       where create' h = do
               allTabs <- CP.sortedTabs h
               _ <- foldlM (\(x, y) item ->  do
-                            let (title, start, dir, command, sendList, running, stopped) = item
-                            addButton table x y notebook title start dir command sendList running stopped
+                            let (title, start, dir, command, sendList, cssClass) = item
+                            addButton table x y notebook title start dir command sendList cssClass
                             let x1 = x + 1
                             if x > 4 then return (0, y + 1) else return (x1, y)
                          ) (0, 0) allTabs
@@ -215,19 +215,19 @@ exitNotice window = do
 
 
 -- add buttons to the button menu
-addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO ()
-addButton table x y notebook title autoStart dir commandList sendList running stopped = do
+addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> String -> IO ()
+addButton table x y notebook title autoStart dir commandList sendList cssClass = do
   label <- GTK.labelNew $ Just title
   ctx1 <- GTK.widgetGetStyleContext label
   CTX.styleContextAddClass ctx1 "item_button"
-  setTabTextColour (Just (GTK.castToWidget label)) running False
+  CTX.styleContextAddClass ctx1 cssClass
 
   button <- GTK.buttonNew
 
   GTK.widgetSetName button title
   GTK.containerAdd button label
 
-  _ <- GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList running stopped >> return ())
+  _ <- GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList cssClass >> return ())
 
   GTK.widgetShowAll button
   GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
@@ -235,8 +235,8 @@ addButton table x y notebook title autoStart dir commandList sendList running st
 
 
 -- add auto/manual started panes
-addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> Maybe GTK.Color -> Maybe GTK.Color -> IO Int
-addPane notebook title autoStart dir commandList sendList running stopped = do
+addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> String -> IO Int
+addPane notebook title autoStart dir commandList sendList cssClass = do
   vbox <- GTK.vBoxNew False 0
   GTK.widgetSetCanFocus vbox False
   GTK.widgetSetName vbox title
@@ -300,13 +300,14 @@ addPane notebook title autoStart dir commandList sendList running stopped = do
     Just tl -> do
       ctxTL <- GTK.widgetGetStyleContext tl
       CTX.styleContextAddClass ctxTL "item_tab"
-  setTabTextColour tabLabel stopped False
+      CTX.styleContextAddClass ctxTL cssClass
+  setTabStopped tabLabel
 
   -- new page is reordereable
   GTK.notebookSetTabReorderable notebook vbox True
 
-  _ <- GTK.on socket GTK.socketPlugRemoved $ unplug buttonBox tabLabel stopped socket refproc
-  _ <- GTK.on socket GTK.socketPlugAdded $ plug tabLabel running socket sendList
+  _ <- GTK.on socket GTK.socketPlugRemoved $ unplug buttonBox tabLabel socket refproc
+  _ <- GTK.on socket GTK.socketPlugAdded $ plug tabLabel socket sendList
 
   when autoStart $ runC refproc socket title dir commandList
 
@@ -352,43 +353,46 @@ press buttons socket title refproc dir commandList = do
 -- detect the program creating its main window
 -- delay in order to give it time to set itself up
 -- send too quickly and the event queue locks up
-plug :: Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket -> [String] -> IO ()
-plug tabLabel colour socket sendList = do
-  _h <- GTK.timeoutAdd (delayedSend tabLabel colour socket sendList) 1000
+plug :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO ()
+plug tabLabel socket sendList = do
+  _h <- GTK.timeoutAdd (delayedSend tabLabel socket sendList) 1000
   return ()
 
 
 -- routine to send the text lines
-delayedSend :: Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket -> [String] -> IO Bool
-delayedSend tabLabel colour socket sendList = do
+delayedSend :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO Bool
+delayedSend tabLabel socket sendList = do
   mapM_ (SC.sendLine socket) sendList
-  setTabTextColour tabLabel colour True
+  setTabRunning tabLabel
   return False
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Table -> Maybe GTK.Widget -> Maybe GTK.Color -> GTK.Socket ->  PR.ProcRef -> IO Bool
-unplug otherButtons tabLabel colour socket refproc = do
+unplug :: GTK.Table -> Maybe GTK.Widget -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug otherButtons tabLabel socket refproc = do
   GTK.widgetHide socket
 
   PR.shutdown refproc
 
   GTK.widgetShowAll otherButtons
 
-  setTabTextColour tabLabel colour False
+  setTabStopped tabLabel
 
   return True
 
 
--- set the text colour of a tab label
-setTabTextColour :: Maybe GTK.Widget -> Maybe GTK.Color -> Bool -> IO ()
-setTabTextColour (Just tabLabel) (Just colour) running = do
-  GTK.widgetModifyFg tabLabel GTK.StateNormal colour
-  GTK.widgetModifyFg tabLabel GTK.StateActive colour
+-- so CSS can set the text colour of a tab label
+setTabRunning :: Maybe GTK.Widget -> IO ()
+setTabRunning (Just tabLabel) = do
   ctxTab <- GTK.widgetGetStyleContext tabLabel
-  if running then CTX.styleContextAddClass ctxTab "running"
-             else CTX.styleContextRemoveClass ctxTab "running"
-setTabTextColour _ _ _ = return ()
+  CTX.styleContextAddClass ctxTab "running"
+setTabRunning _ = return ()
+
+setTabStopped :: Maybe GTK.Widget -> IO ()
+setTabStopped (Just tabLabel) = do
+  ctxTab <- GTK.widgetGetStyleContext tabLabel
+  CTX.styleContextRemoveClass ctxTab "running"
+setTabStopped _ = return ()
 
 
 -- change the main title to be the tab name
