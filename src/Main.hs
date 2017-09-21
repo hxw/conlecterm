@@ -20,7 +20,7 @@ import qualified TerminalUI as TU
 
 --constants
 currentVersion :: String
-currentVersion = "Version 3"
+currentVersion = "Version 4"
 
 defaultSessionFile :: String
 defaultSessionFile = "default.session"
