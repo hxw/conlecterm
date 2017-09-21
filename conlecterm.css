@@ -2,37 +2,7 @@
 ** conlecterm.css
 */
 
-/* add colour to tab if running */
-/* class name is tab title with non-leter/digit -> "_" */
-.TAB_Project_1.item_button,
-.TAB_Project_1.running {
-  color: brown;
-}
-.TAB_Project_2.item_button,
-.TAB_Project_2.running {
-  color: red;
-}
-.TAB_Project_3.item_button,
-.TAB_Project_3.running {
-  color: orange;
-}
-.TAB_Project_4.item_button,
-.TAB_Project_4.running {
-  color: yellow;
-}
-.TAB_Project_5.item_button,
-.TAB_Project_5.running {
-  color: green;
-}
-.TAB_shell.item_button,
-.TAB_shell.running {
-  color: blue;
-}
-.TAB_EMACS.item_button,
-.TAB_EMACS.running {
-  color: violet;
-}
-
+@import url("tabs.css");
 
 /* widget CSS */
 
@@ -140,6 +110,7 @@
 /* moveable tabs */
 
 #conlecterm header > tabs > tab.reorderable-page {
+  color: black;
   background-color: LightSteelBlue;
 }
 
@@ -221,7 +192,7 @@
 
 #conlecterm .item_button {
   font-size: 20pt;
-  background-color:  LightSteelBlue2;
+  background-color: LightSteelBlue;
   border-style: none;
   border-color: red;
   border-width: 0px;

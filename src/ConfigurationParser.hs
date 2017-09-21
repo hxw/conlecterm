@@ -535,13 +535,15 @@ expandPanes (hashCmd, hashPane) tabs = do
                                            , paneSend  = send
                                            } = paneInfo
                             command <- HT.lookup hashCmd pRun
-                            let cssClass = "TAB_" ++ (map makeClassName title)
+                            let cssClass = "TAB-" ++ (map makeClassName title)
                             return $ Just (title, start, dir, fromJust command, send, cssClass)
         makeClassName :: Char -> Char
         makeClassName c
             | CHR.isLetter c = c
             | CHR.isDigit c  = c
-        makeClassName _ = '_'
+            | c == ' ' = '_'
+            | c == ',' || c == '.' || c == '_'  = '_'
+        makeClassName _ = '-'
 
 -- get a sorted list of all the tab names
 -- (case insensitive sort)

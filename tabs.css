@@ -1,0 +1,53 @@
+/*
+** tabs.css
+*/
+
+/* add colour to tab if running
+**
+** class name is derived from tab title
+** with:
+**    letter/digit                     -> same, case preserved
+**    space, comma, underscore, period -> "_" underscore
+**    other punctuation                -> "-" dash(minus)
+*/
+
+.TAB-Project_1.item_button,
+.TAB-Project_1.running {
+  color: brown;
+}
+.TAB-Project_2.item_button,
+.TAB-Project_2.running {
+  color: red;
+}
+.TAB-Project_3.item_button,
+.TAB-Project_3.running {
+  color: orange;
+}
+.TAB-Project_4.item_button,
+.TAB-Project_4.running {
+  color: yellow;
+}
+.TAB-Project_5.item_button,
+.TAB-Project_5.running {
+  color: green;
+}
+.TAB-shell.item_button,
+.TAB-shell.running {
+  color: blue;
+}
+.TAB-EMACS.item_button,
+.TAB-EMACS.running {
+  color: violet;
+}
+.TAB-Work.item_button,
+.TAB-Work.running {
+  color: ForestGreen;
+}
+.TAB-xterm-etc.item_button,
+.TAB-xterm-etc.running {
+  color: orange;
+}
+.TAB-Vi_IMproved.item_button,
+.TAB-Vi_IMproved.running {
+  color: coral;
+}
