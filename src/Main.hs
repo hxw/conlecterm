@@ -1,5 +1,5 @@
--- Copyright (c) 2012-2015, Christopher Hall <hsw@ms2.hinet.net>
--- Licence BSD see LICENSE.text
+-- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
+-- Licence BSD2 see LICENSE file
 
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 
@@ -20,7 +20,7 @@ import qualified TerminalUI as TU
 
 --constants
 currentVersion :: String
-currentVersion = "Version 4"
+currentVersion = "0.4.0.0"
 
 defaultSessionFile :: String
 defaultSessionFile = "default.session"

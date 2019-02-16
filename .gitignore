@@ -1,8 +1,5 @@
 conlecterm
 *.hi
 session-*.rc
-.cabal-sandbox/
-cabal.sandbox.config
-dist/
-local-*
-.stack-*/
+dist*/
+.ghc.*
