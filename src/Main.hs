@@ -26,7 +26,7 @@ defaultSessionFile :: String
 defaultSessionFile = "default.session"
 
 configurationFile :: String
-configurationFile = "config.rc"
+configurationFile = "conlecterm.conf"
 
 cssFile :: String
 cssFile = "conlecterm.css"

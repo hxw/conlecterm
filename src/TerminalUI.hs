@@ -92,13 +92,14 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
   GTK.set notebook [GTK.notebookScrollable GTK.:= True]
 
   GTK.windowSetDefaultSize toplevel 800 600
+  GTK.windowMaximize toplevel
   GTK.set toplevel [GTK.windowTitle GTK.:= initialTitle]
 
   -- get the an icon from the default theme
   theme <- GTK.iconThemeGetDefault
 
   -- check if selection is available
-  availableIcons <-mapM (\iconName ->  do
+  availableIcons <- mapM (\iconName ->  do
              exists <- GTK.iconThemeHasIcon theme iconName
              return (iconName, exists)) iconNameList
 
