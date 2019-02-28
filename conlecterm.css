@@ -26,7 +26,7 @@
   padding: 1px;
   margin: 0px;
   min-width: 100px;
-  min-height: 22px;
+  min-height: 20px;
   border-width: 0px 0px 1px 0px;
   border-style: solid;
   border-color: grey20;
@@ -63,7 +63,7 @@
   outline-width: 0px;
   margin: 0px;
   padding: 0px;
-  min-height: 15px;
+  min-height: 14px;
   border-width: 0px;
   border-style: none;
   border-color: red;
@@ -129,7 +129,7 @@
 #conlecterm header > tabs > tab label.running {
   font-weight: bold;
   font-style: italic;
-  font-size: 11pt;
+  font-size: 12pt;
   background: rgba(255,240,255,0.3);
 }
 
@@ -178,7 +178,7 @@
 
 #conlecterm button:hover:active .close_button {
   color: white;
-  background-color: rgb(255,0,0);
+  background-color: red;
   border-color: black;
 }
 
@@ -191,15 +191,17 @@
 }
 
 #conlecterm .item_button {
-  font-size: 20pt;
-  background-color: LightSteelBlue;
+  font-size: 18pt;
+  font-weight: bold;
+  background-color: LightYellow3;
   border-style: none;
   border-color: red;
   border-width: 0px;
 }
 
 #conlecterm button:hover .item_button {
-  background-color: mistyrose1;
+  background-color: MistyRose;
+  color: black;
   border-color: black;
 }
 
