@@ -130,6 +130,7 @@
   font-weight: bold;
   font-style: italic;
   font-size: 12pt;
+  text-decoration: underline wavy;
   background: rgba(255,240,255,0.3);
 }
 
@@ -200,6 +201,7 @@
 }
 
 #conlecterm button:hover .item_button {
+  text-decoration: underline wavy;
   background-color: MistyRose;
   color: black;
   border-color: black;
