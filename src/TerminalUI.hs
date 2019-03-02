@@ -24,7 +24,12 @@ initialTitle = "Conlecterm"
 
 -- list of possible icons from default theme
 iconNameList :: [String]
-iconNameList = ["utilities-terminal", "gnome-terminal", "xfce-terminal", "terminal"]
+iconNameList = [ "conlecterm"
+               , "utilities-terminal"
+               , "gnome-terminal"
+               , "xfce-terminal"
+               , "terminal"
+               ]
 
 orientation :: SP.Orientation -> GTK.PositionType
 orientation SP.LeftTabs   = GTK.PosLeft
