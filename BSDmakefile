@@ -5,14 +5,21 @@ all:
 	cabal new-build
 
 INSTALL_DIR ?= ${HOME}/.local/share
+BIN_DIR ?= ${HOME}/.cabal/bin
 
+THESES += Adwaita
+THEMES += hicolor
 
 .PHONY: install
 install:
+	rm -f "${BIN_DIR}/conlecterm"
 	cabal new-install conlecterm
+	install -d "${INSTALL_DIR}/applications"
 	install conlecterm.desktop ${INSTALL_DIR}/applications
-	install conlecterm.svg     ${INSTALL_DIR}/icons/Adwaita/scalable/apps
-
+.for t in ${THEMES}
+	install -d "${INSTALL_DIR}/icons/${t}/scalable/apps"
+	install conlecterm.svg "${INSTALL_DIR}/icons/${t}/scalable/apps"
+.endfor
 
 
 .PHONY: emacs-1

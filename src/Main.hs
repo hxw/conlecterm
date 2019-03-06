@@ -1,3 +1,4 @@
+
 -- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
@@ -20,7 +21,7 @@ import qualified TerminalUI as TU
 
 --constants
 currentVersion :: String
-currentVersion = "0.4.0.0"
+currentVersion = "0.4.1.0"
 
 defaultSessionFile :: String
 defaultSessionFile = "default.session"
