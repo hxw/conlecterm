@@ -30,10 +30,19 @@ type NativeAccess = (X.Display, X.Window, X.Window)
 -- ***UNTESTED***
 send :: GTK.Socket -> [String] -> IO ()
 send socket keyList = withNative socket $ \native -> do
-  mapM_ (\k -> sendKey native X.noModMask (symbol k)) keyList
+  mapM_ (\k -> sendOneKey native X.noModMask (symbol k)) keyList
   where
     symbol = X.stringToKeysym
 
+-- send a single of keysym
+sendKey :: GTK.Socket -> [GTK.Modifier] -> GTK.KeyVal -> IO ()
+sendKey socket mods key = withNative socket $ \native -> do
+  let k1 = (fromIntegral key) :: Word
+  let k = (fromIntegral k1) :: X.KeySym
+  let modMask = foldl makeMask X.noModMask mods
+  sendOneKey native modMask k
+      where
+        makeMask a k = a + (modToMask k)
 
 -- send a line ended by newline
 -- each character of the string is treated as a separate keysym
@@ -41,9 +50,9 @@ sendLine :: GTK.Socket -> String -> IO ()
 sendLine socket str = withNative socket $ \native -> do
   mapM_ (\c -> do
             let (shift, symbol) = sym c
-            sendKey native shift symbol
+            sendOneKey native shift symbol
         )str
-  sendKey native X.noModMask eol
+  sendOneKey native X.noModMask eol
 
 
 -- bracket all the messy details of accessing Xlib
@@ -55,7 +64,6 @@ withNative socket run =
   where
     setup :: IO NativeAccess
     setup = do
-      -- COMPILES, but not working
       socketId <- GTK.socketGetId socket
       display <- X.openDisplay ""
       --let root = X.defaultRootWindow display
@@ -72,8 +80,8 @@ withNative socket run =
 -- needs flush and delay to ensure that the event actually gets sent
 -- delay appears to be required or the event queue is overloaded
 -- and the urxvt ceases to respond to normal key presses
-sendKey ::  NativeAccess -> X.KeyMask -> X.KeySym -> IO ()
-sendKey (display, root, window) shift keysym = do
+sendOneKey ::  NativeAccess -> X.KeyMask -> X.KeySym -> IO ()
+sendOneKey (display, root, window) shift keysym = do
   keycode <- X.keysymToKeycode display keysym
   X.allocaXEvent $ \ke -> do
     XE.setEventType ke X.keyPress
@@ -197,3 +205,41 @@ sym '}' = (X.shiftMask, X.stringToKeysym "braceright")
 sym '~' = (X.shiftMask, X.stringToKeysym "asciitilde")
 -- unsupported codes just convert to space
 sym _ = (X.noModMask, X.stringToKeysym "space")
+
+
+-- convert a modifier to a mask
+modToMask :: GTK.Modifier -> X.KeyMask
+modToMask GTK.Shift = X.shiftMask
+modToMask GTK.Lock = X.lockMask
+modToMask GTK.Control = X.controlMask
+modToMask GTK.Alt = X.mod1Mask
+modToMask GTK.Alt2 = X.mod2Mask
+modToMask GTK.Alt3 = X.mod3Mask
+modToMask GTK.Alt4 = X.mod4Mask
+modToMask GTK.Alt5 = X.mod5Mask
+--modToMask GTK.Button1 = 0
+--modToMask GTK.Button2 = 0
+--modToMask GTK.Button3 = 0
+--modToMask GTK.Button4 = 0
+--modToMask GTK.Button5 = 0
+--modToMask GTK.MODIFIER_RESERVED_13_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_14_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_15_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_16_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_17_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_18_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_19_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_20_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_21_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_22_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_23_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_24_MASK = 0
+--modToMask GTK.MODIFIER_RESERVED_25_MASK = 0
+--modToMask GTK.Super = 0
+--modToMask GTK.Hyper = 0
+--modToMask GTK.Meta = 0
+--modToMask GTK.MODIFIER_RESERVED_29_MASK = 0
+--modToMask GTK.Release = 0
+--modToMask GTK.ModifierMask = 0
+-- default
+modToMask _ = X.noModMask

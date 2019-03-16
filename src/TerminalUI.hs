@@ -28,7 +28,7 @@ iconNameList = [ "conlecterm"
                , "utilities-terminal"
                , "gnome-terminal"
                , "xfce-terminal"
-               , "terminal"
+              , "terminal"
                ]
 
 orientation :: SP.Orientation -> GTK.PositionType
@@ -154,8 +154,35 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
   -- link up the close button
   _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit toplevel sessionName sessionFileName orient notebook
 
+  -- key press signal
+  _ <- GTK.on toplevel GTK.keyPressEvent $ do
+        k <- GTK.eventKeyVal
+        --name <- GTK.eventKeyName
+        mods <- GTK.eventModifier
+        liftIO $ forwardKeyPress notebook mods k
+        return True
+
   -- start the GTK event loop
   GTK.mainGUI
+
+-- send key to the right socket
+forwardKeyPress :: GTK.Notebook -> [GTK.Modifier] -> GTK.KeyVal -> IO ()
+forwardKeyPress notebook mods key = do
+  page <- GTK.notebookGetCurrentPage notebook
+  tab <- GTK.notebookGetNthPage notebook page
+  case tab of
+    Nothing -> return ()
+    Just page -> do
+             let b = GTK.isA page GTK.gTypeContainer
+             when b $ do
+                  let c = GTK.castToContainer page
+                  n <- GTK.containerGetChildren c
+                  let first = head n
+                  let b = GTK.isA first GTK.gTypeSocket
+                  when b $ do
+                        let socket = GTK.castToSocket first
+                        b <- GTK.socketHasPlug socket
+                        when b $ SC.sendKey socket mods key
 
 
 -- compile buttons from current configuration
