@@ -6,6 +6,7 @@ module TerminalUI(run
 
 import Data.Foldable( foldlM )
 import Data.List( find )
+import qualified Data.Text as T
 import Control.Monad (when)
 import Control.Monad.Trans( liftIO )
 
@@ -157,9 +158,12 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
   -- key press signal
   _ <- GTK.on toplevel GTK.keyPressEvent $ do
         k <- GTK.eventKeyVal
-        --name <- GTK.eventKeyName
+        name <- GTK.eventKeyName
         mods <- GTK.eventModifier
-        liftIO $ forwardKeyPress notebook mods k
+        let mods' = if name == (T.pack "less")
+                    then filter (\m -> m /= GTK.Shift) mods
+                    else mods
+        liftIO $ forwardKeyPress notebook mods' k
         return True
 
   -- start the GTK event loop
