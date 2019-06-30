@@ -2,6 +2,7 @@
 
 .PHONY: all
 all:
+	cabal new-update
 	cabal new-build
 
 INSTALL_DIR ?= ${HOME}/.local/share
@@ -9,6 +10,10 @@ BIN_DIR ?= ${HOME}/.cabal/bin
 
 THESES += Adwaita
 THEMES += hicolor
+
+.PHONY: run
+run:
+	cabal new-run
 
 .PHONY: install
 install:
@@ -21,6 +26,9 @@ install:
 	install conlecterm.svg "${INSTALL_DIR}/icons/${t}/scalable/apps"
 .endfor
 
+.PHONY: clean
+clean:
+	rm -fr dist dist-newstyle
 
 .PHONY: emacs-1
 emacs-1:
