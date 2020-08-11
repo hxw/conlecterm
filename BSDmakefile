@@ -8,7 +8,7 @@ all:
 INSTALL_DIR ?= ${HOME}/.local/share
 BIN_DIR ?= ${HOME}/.cabal/bin
 
-THESES += Adwaita
+THEMES += Adwaita
 THEMES += hicolor
 
 .PHONY: run
