@@ -6,31 +6,53 @@ module ProcessRunner where
 import System.Process
 import Data.IORef
 import System.IO.Unsafe( unsafePerformIO )
+import System.IO( hPutStrLn, stderr )
+import Control.Exception( catch, IOException )
 
 import qualified Control.Concurrent.MVar as V
+import qualified System.Directory as SD
 
 type ProcRef = V.MVar ProcessHandle
 
 newProcRef :: IO ProcRef
 newProcRef = V.newEmptyMVar
 
-
 -- run a command on a procref
+--
+-- do not crash on error, though a process failure seems to make the tab unusable
+-- if the dir was removed then simply start in the conlecterm start dir
 run :: ProcRef -> Maybe String -> [String] -> IO ()
-run procref dir (prog:args) = do
-  (_, _, _, aProc) <-
-    createProcess (proc prog args)
-                  { cwd = dir
-                  , std_out = Inherit
-                  , std_err = Inherit
-                  }
-  V.putMVar procref aProc
-  inc
-  return ()
 run _ _ [] = do
-  _ <- error "empty run command"
+  _ <- error "ProcessRunner.run: empty run command"
   return ()
+run procref dir (prog:args) = do
+  catch (doRun)
+            (\e -> do
+               let err = show (e :: IOException)
+               _ <- hPutStrLn stderr ("ProcessRunner.run: error: " ++ err)
+               return ()
+            )
+      where
+        doRun = do
+            checkedDirectory <- checkDir dir
+            (_, _, _, aProc) <-
+                createProcess (proc prog args)
+                                  { cwd = checkedDirectory
+                                  , std_out = Inherit
+                                  , std_err = Inherit
+                                  }
+            V.putMVar procref aProc
+            inc
+            return ()
 
+        checkDir Nothing = return Nothing
+        checkDir (Just dir) = do
+            f <- SD.doesDirectoryExist dir
+            if f
+            then do
+              _ <- hPutStrLn stderr ("ProcessRunner.run: directory disappeared: " ++ dir)
+              return $ Just dir
+            else return Nothing
 
 -- ait for child termination
 shutdown :: ProcRef -> IO ()

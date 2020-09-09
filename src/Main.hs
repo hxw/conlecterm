@@ -18,10 +18,13 @@ import System.Posix.Files  (fileExist, isDirectory, getFileStatus)
 
 import qualified TerminalUI as TU
 
+-- to get version from conlecterm.cabal
+import Paths_conlecterm (version)
+import qualified Data.Version as DV
 
 --constants
 currentVersion :: String
-currentVersion = "0.4.1.0"
+currentVersion = DV.showVersion version
 
 defaultSessionFile :: String
 defaultSessionFile = "default.session"
