@@ -30,6 +30,11 @@ install:
 clean:
 	rm -fr dist dist-newstyle
 
+# information for updating the FreeBSD port x11/conlecterm
+.PHONY: tuple
+tuple:
+	cabal2tuple dist-newstyle/cache/plan.json
+
 .PHONY: emacs-1
 emacs-1:
 	cabal new-run conlecterm -- -c . -v
