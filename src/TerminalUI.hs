@@ -75,16 +75,10 @@ run configFileName cssFileName sessionFileName verbose = do
 run' :: String -> String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> Bool -> IO ()
 run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _h) verbose = do
 
+
   _ <- GTK.initGUI
 
-  -- create a css provider for the buttons
-  css <- CSS.cssProviderNew
-  CSS.cssProviderLoadFromPath css cssFileName
-
-  screen <- Screen.screenGetDefault
-  case screen of
-    Nothing -> return ()
-    Just scn -> CTX.styleContextAddProviderForScreen scn css 800
+  setupCSS cssFileName
 
   toplevel <- GTK.windowNew
   notebook <- GTK.notebookNew
@@ -133,7 +127,7 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
   ctxTable <- GTK.widgetGetStyleContext table
   CTX.styleContextAddClass ctxTable "new_table"
 
-  _ <- GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName
+  _ <- GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName cssFileName
   GTK.widgetSetCanFocus notebook False
 
   -- create the buttons page
@@ -152,7 +146,7 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
             let (title, start, dir, command, sendList, cssClass) = tab
             addPane notebook title start dir command sendList cssClass) tabList
 
-  -- link up the close button
+  -- link up the remove tab button
   _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit toplevel sessionName sessionFileName orient notebook
 
   -- key press signal
@@ -168,6 +162,18 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
 
   -- start the GTK event loop
   GTK.mainGUI
+
+-- create a css provider for the buttons
+setupCSS :: String -> IO ()
+setupCSS cssFileName = do
+
+  css <- CSS.cssProviderNew
+  CSS.cssProviderLoadFromPath css cssFileName
+
+  screen <- Screen.screenGetDefault
+  case screen of
+    Nothing -> return ()
+    Just scn -> CTX.styleContextAddProviderForScreen scn css 800
 
 -- send key to the right socket
 forwardKeyPress :: GTK.Notebook -> [GTK.Modifier] -> GTK.KeyVal -> IO ()
@@ -190,13 +196,15 @@ forwardKeyPress notebook mods key = do
 
 
 -- compile buttons from current configuration
-
-createButtons :: String -> GTK.Table -> GTK.Notebook -> IO ()
-createButtons configFileName table notebook = do
+createButtons :: String -> String -> GTK.Table -> GTK.Notebook -> IO ()
+createButtons configFileName cssFileName table notebook = do
 
   -- erase old contents
   contents <- GTK.containerGetChildren table
   mapM_ (\item -> GTK.containerRemove table item) contents
+
+  -- reload CSS
+  setupCSS cssFileName
 
   -- fetch possible updated configuration
   mh <- CP.compile [configFileName]
@@ -293,37 +301,37 @@ addPane notebook title autoStart dir commandList sendList cssClass = do
   let columns = 5
   buttonBox <- GTK.tableNew rows columns False
 
-  -- close button
-  cl <- GTK.labelNew $ Just "Close"
-  ctxCL <- GTK.widgetGetStyleContext cl
-  CTX.styleContextAddClass ctxCL "close_button"
+  -- remove tab button
+  rtLabel <- GTK.labelNew $ Just "Remove Tab"
+  ctxRtLabel <- GTK.widgetGetStyleContext rtLabel
+  CTX.styleContextAddClass ctxRtLabel "remove_tab_button"
 
-  cb <- GTK.buttonNew
-  ctxCB <- GTK.widgetGetStyleContext cb
-  CTX.styleContextAddClass ctxCB "close_button"
+  rtBtn <- GTK.buttonNew
+  ctxRtBtn <- GTK.widgetGetStyleContext rtBtn
+  CTX.styleContextAddClass ctxRtBtn "remove_tab_button"
 
-  GTK.containerAdd cb cl
+  GTK.containerAdd rtBtn rtLabel
 
-  _ <- GTK.on cb GTK.buttonActivated $ closePage notebook vbox
-  GTK.widgetShowAll cb
+  _ <- GTK.on rtBtn GTK.buttonActivated $ closePage notebook vbox
+  GTK.widgetShowAll rtBtn
 
   -- start button
-  sl <- GTK.labelNew $ Just "Start"
-  ctxSL <- GTK.widgetGetStyleContext sl
-  CTX.styleContextAddClass ctxSL "start_button"
+  stLabel <- GTK.labelNew $ Just "Start"
+  ctxStLabel <- GTK.widgetGetStyleContext stLabel
+  CTX.styleContextAddClass ctxStLabel "start_button"
 
-  sb <- GTK.buttonNew
-  ctxSB <- GTK.widgetGetStyleContext sb
-  CTX.styleContextAddClass ctxSB "start_button"
+  stBtn <- GTK.buttonNew
+  ctxStBtn <- GTK.widgetGetStyleContext stBtn
+  CTX.styleContextAddClass ctxStBtn "start_button"
 
-  GTK.containerAdd sb sl
+  GTK.containerAdd stBtn stLabel
 
-  _ <- GTK.on sb GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
-  GTK.widgetShowAll sb
+  _ <- GTK.on stBtn GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
+  GTK.widgetShowAll stBtn
 
   -- button ordering start top, close bottom
-  GTK.tableAttachDefaults buttonBox sb 0 columns 0 (rows - 1)
-  GTK.tableAttachDefaults buttonBox cb 1 (columns - 1) (rows - 1) rows
+  GTK.tableAttachDefaults buttonBox stBtn 0 columns 0 (rows - 1)
+  GTK.tableAttachDefaults buttonBox rtBtn 1 (columns - 1) (rows - 1) rows
   GTK.containerAdd vbox buttonBox
 
   -- automatically start sub-process?
@@ -433,9 +441,9 @@ setTabStopped _ = return ()
 
 
 -- change the main title to be the tab name
-pageChange :: GTK.Window -> GTK.Notebook -> GTK.Table -> String -> Int -> IO ()
-pageChange window notebook table configFileName page = do
-  when (page == 0) $ createButtons configFileName table notebook
+pageChange :: GTK.Window -> GTK.Notebook -> GTK.Table -> String -> String -> Int -> IO ()
+pageChange window notebook table configFileName cssFileName page = do
+  when (page == 0) $ createButtons configFileName cssFileName table notebook
   changeTitle window notebook page
 
 

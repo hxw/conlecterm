@@ -35,6 +35,7 @@
 .TAB-shell.running {
   color: blue;
 }
+
 .TAB-EMACS.item_button,
 .TAB-EMACS.running {
   color: purple;

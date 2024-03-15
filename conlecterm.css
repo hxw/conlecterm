@@ -137,7 +137,7 @@
 }
 
 
-/* buttons for start/close */
+/* buttons for Start and Remove Tab */
 
 #conlecterm stack > box {
   background-image: none;
@@ -164,23 +164,23 @@
   border-color: black;
 }
 
-#conlecterm stack .close_button {
+#conlecterm stack .remove_tab_button {
   background-color: darkred;
-  font-size: 20pt;
+  font-size: 24pt;
   font-weight: bold;
-  color: red;
+  color: gray30;
   border-width: 0px;
   border-color: black;
 }
 
-#conlecterm button:hover .close_button {
-  color: red;
-  background-color: tomato;
+#conlecterm button:hover .remove_tab_button {
+  color: gray60;
+  background-color: red3;
   border-color: black;
 }
 
-#conlecterm button:hover:active .close_button {
-  color: white;
+#conlecterm button:hover:active .remove_tab_button {
+  color: black;
   background-color: red;
   border-color: black;
 }
