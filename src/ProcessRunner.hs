@@ -49,10 +49,10 @@ run procref dir (prog:args) = do
         checkDir (Just dir) = do
             f <- SD.doesDirectoryExist dir
             if f
-            then do
+            then return $ Just dir
+            else do
               _ <- hPutStrLn stderr ("ProcessRunner.run: directory disappeared: " ++ dir)
-              return $ Just dir
-            else return Nothing
+              return Nothing
 
 -- ait for child termination
 shutdown :: ProcRef -> IO ()

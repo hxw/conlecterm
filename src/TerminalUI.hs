@@ -1,6 +1,8 @@
 -- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module TerminalUI(run
                  ) where
 
@@ -10,33 +12,37 @@ import qualified Data.Text as T
 import Control.Monad (when)
 import Control.Monad.Trans( liftIO )
 
-import qualified Graphics.UI.Gtk as GTK
-import qualified Graphics.UI.Gtk.Gdk.Screen as Screen
-import qualified Graphics.UI.Gtk.General.StyleContext as CTX
-import qualified Graphics.UI.Gtk.General.CssProvider as CSS
+import qualified GI.Gtk as GTK
+import qualified GI.Gdk as GDK
+import qualified GI.GLib as GLIB
+import qualified GI.Gdk.Objects.Screen as Screen
+import qualified GI.Gtk.Objects.StyleContext as CTX
+import qualified GI.Gtk.Objects.CssProvider as CSS
+import Data.GI.Base.ShortPrelude
+
 
 import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
 import qualified ProcessRunner as PR
 import qualified SendControl as SC
 
-initialTitle :: String
+initialTitle :: T.Text
 initialTitle = "Conlecterm"
 
 -- list of possible icons from default theme
-iconNameList :: [String]
+iconNameList :: [T.Text]
 iconNameList = [ "conlecterm"
                , "utilities-terminal"
                , "gnome-terminal"
                , "xfce-terminal"
-              , "terminal"
+               , "terminal"
                ]
 
 orientation :: SP.Orientation -> GTK.PositionType
-orientation SP.LeftTabs   = GTK.PosLeft
-orientation SP.RightTabs  = GTK.PosRight
-orientation SP.TopTabs    = GTK.PosTop
-orientation SP.BottomTabs = GTK.PosBottom
+orientation SP.LeftTabs   = GTK.PositionTypeLeft
+orientation SP.RightTabs  = GTK.PositionTypeRight
+orientation SP.TopTabs    = GTK.PositionTypeTop
+orientation SP.BottomTabs = GTK.PositionTypeBottom
 
 
 -- compile the configuration
@@ -75,16 +81,15 @@ run configFileName cssFileName sessionFileName verbose = do
 run' :: String -> String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> Bool -> IO ()
 run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _h) verbose = do
 
+  GTK.init Nothing
 
-  _ <- GTK.initGUI
+  setupCSS $ T.pack cssFileName
 
-  setupCSS cssFileName
-
-  toplevel <- GTK.windowNew
+  toplevel <- GTK.windowNew GTK.WindowTypeToplevel
   notebook <- GTK.notebookNew
   GTK.widgetSetName notebook "conlecterm"
 
-  _ <- GTK.on notebook GTK.pageReordered $ reordered notebook
+  GTK.onNotebookPageReordered notebook $ reordered notebook
 
   GTK.notebookSetTabPos notebook $ orientation orient
 --  GTK.set notebook [GTK.notebookHomogeneous GTK.:= True]
@@ -120,51 +125,53 @@ run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _
       GTK.set toplevel [GTK.windowIconName GTK.:= iconName]
 
   toplevel `GTK.containerAdd` notebook
-  GTK.widgetShowAll toplevel
+  GTK.widgetShow toplevel
 
   -- set up page switcher
-  table <- GTK.tableNew 4 4 True
+  table <- GTK.gridNew
+  GTK.setGridColumnHomogeneous table True
+  GTK.setGridRowHomogeneous table True
+
   ctxTable <- GTK.widgetGetStyleContext table
   CTX.styleContextAddClass ctxTable "new_table"
 
-  _ <- GTK.on notebook GTK.switchPage $ pageChange toplevel notebook table configFileName cssFileName
+  _ <- GTK.onNotebookSwitchPage notebook $ pageChange toplevel notebook table configFileName cssFileName
   GTK.widgetSetCanFocus notebook False
 
   -- create the buttons page
-  GTK.widgetShowAll table
-  _buttonPage <- GTK.notebookAppendPage notebook table "+NEW"
-  tabLabel <- GTK.notebookGetTabLabel notebook table
+  GTK.widgetShow table
 
-  case tabLabel of
-    Nothing -> return ()
-    Just tl -> do
-      ctxNew <- GTK.widgetGetStyleContext tl
-      CTX.styleContextAddClass ctxNew "new_tab"
+  tabLabel <- GTK.labelNew $ Just "+NEW"
+  ctxNew <- GTK.widgetGetStyleContext tabLabel
+  CTX.styleContextAddClass ctxNew "new_tab"
 
-  -- create all the initial table
+  buttonPage <- GTK.notebookAppendPage notebook table $ Just tabLabel
+
+  -- create all the initial table entries
   mapM_ (\tab ->  do
             let (title, start, dir, command, sendList, cssClass) = tab
-            addPane notebook title start dir command sendList cssClass) tabList
+            addPane notebook (T.pack title) start dir command sendList (T.pack cssClass)) tabList
 
-  -- link up the remove tab button
-  _ <- GTK.on toplevel GTK.deleteEvent $ liftIO $ checkExit toplevel sessionName sessionFileName orient notebook
+  -- do not close app if there are active tabs
+  GTK.onWidgetDeleteEvent toplevel $ \e -> do
+    checkExit toplevel sessionName sessionFileName orient notebook
+  GTK.onWidgetDestroy toplevel GTK.mainQuit
+
+  GTK.widgetShowAll toplevel
 
   -- key press signal
-  _ <- GTK.on toplevel GTK.keyPressEvent $ do
-        k <- GTK.eventKeyVal
-        name <- GTK.eventKeyName
-        mods <- GTK.eventModifier
-        let mods' = if name == (T.pack "less")
-                    then filter (\m -> m /= GTK.Shift) mods
-                    else mods
-        liftIO $ forwardKeyPress notebook mods' k
+  _ <- GTK.onWidgetKeyPressEvent toplevel $ \e -> do
+        k <- GDK.getEventKeyKeyval e
+        mods <- GDK.getEventKeyState e
+        liftIO $ forwardKeyPress notebook mods k
         return True
 
   -- start the GTK event loop
-  GTK.mainGUI
+  GTK.main
+
 
 -- create a css provider for the buttons
-setupCSS :: String -> IO ()
+setupCSS :: T.Text -> IO ()
 setupCSS cssFileName = do
 
   css <- CSS.cssProviderNew
@@ -175,28 +182,33 @@ setupCSS cssFileName = do
     Nothing -> return ()
     Just scn -> CTX.styleContextAddProviderForScreen scn css 800
 
+
 -- send key to the right socket
-forwardKeyPress :: GTK.Notebook -> [GTK.Modifier] -> GTK.KeyVal -> IO ()
+forwardKeyPress :: GTK.Notebook -> [GDK.ModifierType] -> Word32 -> IO ()
 forwardKeyPress notebook mods key = do
-  page <- GTK.notebookGetCurrentPage notebook
-  tab <- GTK.notebookGetNthPage notebook page
+  pageNumber <- GTK.notebookGetCurrentPage notebook
+  tab <- GTK.notebookGetNthPage notebook pageNumber
   case tab of
     Nothing -> return ()
     Just page -> do
-             let b = GTK.isA page GTK.gTypeContainer
-             when b $ do
-                  let c = GTK.castToContainer page
-                  n <- GTK.containerGetChildren c
+      ctr <- castTo GTK.Container page
+      case ctr of
+        Nothing -> return ()
+        Just ctr -> do
+                  n <- GTK.containerGetChildren ctr
                   let first = head n
-                  let b = GTK.isA first GTK.gTypeSocket
-                  when b $ do
-                        let socket = GTK.castToSocket first
-                        b <- GTK.socketHasPlug socket
-                        when b $ SC.sendKey socket mods key
-
+                  s <- castTo GTK.Socket first
+                  case s of
+                    Nothing -> return ()
+                    Just socket -> do
+                           socketId <- GTK.socketGetId socket
+                           pw <- GTK.socketGetPlugWindow socket
+                           case pw of
+                             Nothing -> return ()
+                             Just _pw -> SC.sendKey socket mods key
 
 -- compile buttons from current configuration
-createButtons :: String -> String -> GTK.Table -> GTK.Notebook -> IO ()
+createButtons :: String -> String -> GTK.Grid -> GTK.Notebook -> IO ()
 createButtons configFileName cssFileName table notebook = do
 
   -- erase old contents
@@ -204,7 +216,7 @@ createButtons configFileName cssFileName table notebook = do
   mapM_ (\item -> GTK.containerRemove table item) contents
 
   -- reload CSS
-  setupCSS cssFileName
+  setupCSS $ T.pack cssFileName
 
   -- fetch possible updated configuration
   mh <- CP.compile [configFileName]
@@ -218,25 +230,25 @@ createButtons configFileName cssFileName table notebook = do
               allTabs <- CP.sortedTabs h
               _ <- foldlM (\(x, y) item ->  do
                             let (title, start, dir, command, sendList, cssClass) = item
-                            addButton table x y notebook title start dir command sendList cssClass
-                            let x1 = x + 1
-                            if x > 4 then return (0, y + 1) else return (x1, y)
+                            addButton table x y notebook (T.pack title) start dir command sendList (T.pack cssClass)
+                            if x > 4 then return (0, y + 1) else return (x + 1, y)
                          ) (0, 0) allTabs
-              GTK.widgetShowAll table
+              --GTK.widgetShowAll table
+              GTK.widgetShow table
               return ()
 
 
 -- do not allow exit if still some tabs are open
-checkExit :: GTK.Window -> String ->  String -> SP.Orientation -> GTK.Notebook -> IO Bool
+checkExit :: GTK.Window -> String -> String -> SP.Orientation -> GTK.Notebook -> IO Bool
 checkExit window sessionName sessionFileName orient notebook = do
   saveSession
   active <- PR.activeProcs
-  let continue = active > 0
-  if continue then exitNotice window else GTK.mainQuit
-  return $ continue
+  if active > 0 then do
+                exitNotice active
+                return True
+  else return False
 
   where
-
     saveSession :: IO ()
     saveSession = do
       pageCount <- GTK.notebookGetNPages notebook
@@ -248,19 +260,30 @@ checkExit window sessionName sessionFileName orient notebook = do
             p <- GTK.notebookGetNthPage notebook i
             case p of
               Nothing -> return ""
-              Just page -> GTK.widgetGetName page
+              Just page -> do
+                       t <- GTK.widgetGetName page
+                       return $ T.unpack t
 
 
 -- dialog warning about acive tabs
-exitNotice :: GTK.Window -> IO ()
-exitNotice window = do
-  dialog <- GTK.messageDialogNew (Just window) [GTK.DialogDestroyWithParent] GTK.MessageWarning GTK.ButtonsOk "Some tabs are still active"
-  _response <- GTK.dialogRun dialog
+exitNotice :: Int -> IO ()
+exitNotice active = do
+  -- (Just window) [GTK.DialogFlagsDestroyWithParent] GTK.MessageTypeWarning GTK.ButtonsTypeOk "Some tabs are still active"
+  dialog <- GTK.dialogNew
+  let verb = if active == 1 then "is" else "are"
+  let message = "<span foreground=\"red\" size=\"xx-large\">There " ++ verb ++ " " ++ (show active) ++ " tabs are still active</span>"
+  area <- GTK.dialogGetContentArea dialog
+  label <- GTK.labelNew $ Just ""
+  GTK.labelSetMarkup label $ T.pack message
+  GTK.widgetShow label
+  GTK.containerAdd area label
+  GTK.dialogAddButton dialog "OK" 42
+  response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
-
+  return ()
 
 -- add buttons to the button menu
-addButton :: GTK.Table -> Int -> Int -> GTK.Notebook -> String -> Bool -> Maybe String -> CP.CommandList -> [String] -> String -> IO ()
+addButton :: GTK.Grid -> Int32 -> Int32 -> GTK.Notebook -> T.Text -> Bool -> Maybe String -> CP.CommandList -> [String] -> T.Text -> IO ()
 addButton table x y notebook title autoStart dir commandList sendList cssClass = do
   label <- GTK.labelNew $ Just title
   ctx1 <- GTK.widgetGetStyleContext label
@@ -272,21 +295,23 @@ addButton table x y notebook title autoStart dir commandList sendList cssClass =
   GTK.widgetSetName button title
   GTK.containerAdd button label
 
-  _ <- GTK.on button GTK.buttonActivated $ (addPane notebook title autoStart dir commandList sendList cssClass >> return ())
+  _ <- GTK.onButtonClicked button $ (addPane notebook title autoStart dir commandList sendList cssClass >> return ())
 
-  GTK.widgetShowAll button
-  GTK.tableAttachDefaults table button x (x + 1) y (y + 1)
+  GTK.widgetShow button
+  GTK.gridAttach table button x y 1 1
   return ()
 
 
 -- add auto/manual started panes
-addPane :: GTK.Notebook ->  String -> Bool -> Maybe String -> CP.CommandList -> [String] -> String -> IO Int
+addPane :: GTK.Notebook ->  T.Text -> Bool -> Maybe String -> CP.CommandList -> [String] -> T.Text -> IO Int32
 addPane notebook title autoStart dir commandList sendList cssClass = do
-  vbox <- GTK.vBoxNew False 0
+
+  vbox <- GTK.boxNew GTK.OrientationVertical 0 -- 0 pixel spacing
+  GTK.boxSetHomogeneous vbox False
   GTK.widgetSetCanFocus vbox False
   GTK.widgetSetName vbox title
-
-  GTK.widgetShowAll vbox
+  GTK.widgetSetVexpand vbox True
+  GTK.widgetShow vbox
 
   -- create a socket and put it in the Vbox
   socket <- GTK.socketNew
@@ -299,7 +324,20 @@ addPane notebook title autoStart dir commandList sendList cssClass = do
   -- table to hold buttons
   let rows = 10
   let columns = 5
-  buttonBox <- GTK.tableNew rows columns False
+  let startHeight = rows - 1
+  let startWidth = columns
+  let startX = 0
+  let startY = 0
+  let removeHeight = rows - startHeight
+  let removeWidth = columns - 2
+  let removeX = 1
+  let removeY = startHeight
+
+  buttonBox <- GTK.gridNew
+  GTK.widgetSetVexpand buttonBox True
+
+  GTK.setGridColumnHomogeneous buttonBox True
+  GTK.setGridRowHomogeneous buttonBox True
 
   -- remove tab button
   rtLabel <- GTK.labelNew $ Just "Remove Tab"
@@ -312,8 +350,8 @@ addPane notebook title autoStart dir commandList sendList cssClass = do
 
   GTK.containerAdd rtBtn rtLabel
 
-  _ <- GTK.on rtBtn GTK.buttonActivated $ closePage notebook vbox
-  GTK.widgetShowAll rtBtn
+  _ <- GTK.onButtonClicked rtBtn $ closePage notebook vbox
+  GTK.widgetShow rtBtn
 
   -- start button
   stLabel <- GTK.labelNew $ Just "Start"
@@ -326,69 +364,65 @@ addPane notebook title autoStart dir commandList sendList cssClass = do
 
   GTK.containerAdd stBtn stLabel
 
-  _ <- GTK.on stBtn GTK.buttonActivated $ press buttonBox socket title refproc dir commandList
-  GTK.widgetShowAll stBtn
+  _ <- GTK.onButtonClicked stBtn $ press buttonBox socket title refproc dir commandList
+  GTK.widgetShow stBtn
 
   -- button ordering start top, close bottom
-  GTK.tableAttachDefaults buttonBox stBtn 0 columns 0 (rows - 1)
-  GTK.tableAttachDefaults buttonBox rtBtn 1 (columns - 1) (rows - 1) rows
+  GTK.gridAttach buttonBox stBtn startX startY startWidth startHeight
+  GTK.gridAttach buttonBox rtBtn removeX removeY removeWidth removeHeight
+
   GTK.containerAdd vbox buttonBox
 
   -- automatically start sub-process?
-  when (not autoStart) $ GTK.widgetShowAll buttonBox
+  when (not autoStart) $ GTK.widgetShow buttonBox
 
-  page <- GTK.notebookAppendPage notebook vbox title
-  tabLabel <- GTK.notebookGetTabLabel notebook vbox
+  tabLabel <- GTK.labelNew $ Just title
+  ctxTL <- GTK.widgetGetStyleContext tabLabel
+  CTX.styleContextAddClass ctxTL "item_tab"
+  CTX.styleContextAddClass ctxTL cssClass
+  page <- GTK.notebookAppendPage notebook vbox $ Just tabLabel
 
-  case tabLabel of
-    Nothing -> return ()
-    Just tl -> do
-      ctxTL <- GTK.widgetGetStyleContext tl
-      CTX.styleContextAddClass ctxTL "item_tab"
-      CTX.styleContextAddClass ctxTL cssClass
   setTabStopped tabLabel
 
-  -- new page is reordereable
+  -- new page is can be reordered
   GTK.notebookSetTabReorderable notebook vbox True
 
-  _ <- GTK.on socket GTK.socketPlugRemoved $ unplug buttonBox tabLabel socket refproc
-  _ <- GTK.on socket GTK.socketPlugAdded $ plug tabLabel socket sendList
+  _ <- GTK.onSocketPlugRemoved socket $ unplug buttonBox tabLabel socket refproc
+  _ <- GTK.onSocketPlugAdded socket $ plug tabLabel socket sendList
 
   when autoStart $ runC refproc socket title dir commandList
 
   return page
 
 -- remove a closed page
-closePage :: GTK.Notebook -> GTK.VBox -> IO ()
+closePage :: GTK.Notebook -> GTK.Box -> IO ()
 closePage notebook page = do
-  pageNumber <-  GTK.notebookPageNum notebook page
-  case pageNumber of
-    Nothing ->  return ()
-    Just pageIndex ->  do
-      GTK.notebookRemovePage notebook pageIndex
-      return ()
+  pageNumber <- GTK.notebookPageNum notebook page
+  GTK.notebookRemovePage notebook pageNumber
 
 
 -- prevent reorder < 1st place
-reordered :: GTK.Notebook -> GTK.Widget -> Int -> IO ()
+reordered :: GTK.Notebook -> GTK.Widget -> Word32 -> IO ()
 reordered notebook page position = do
   when (position < 2) $ GTK.notebookReorderChild notebook page 1
 
 
 -- run a command
-runC :: PR.ProcRef -> GTK.Socket -> String -> Maybe String -> CP.CommandList -> IO ()
+runC :: PR.ProcRef -> GTK.Socket -> T.Text -> Maybe String -> CP.CommandList -> IO ()
 runC refproc socket title dir commandList = do
-  GTK.widgetShowAll socket
+  --GTK.widgetShowAll socket
+  GTK.widgetSetVexpand socket True
+  GTK.widgetShow socket
 
   -- expand the command string
   paneid <- GTK.socketGetId socket
-  let windowID = GTK.fromNativeWindowId paneid :: Integer
-  let cmd = CP.expandCommand commandList windowID title
+  let windowID = toInteger paneid :: Integer
+  let cmd = CP.expandCommand commandList windowID (T.unpack title)
   PR.run refproc dir cmd
 
 
 -- button pressed
-press :: GTK.Table -> GTK.Socket -> String -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
+press :: GTK.Grid -> GTK.Socket -> T.Text -> PR.ProcRef -> Maybe String -> CP.CommandList -> IO ()
 press buttons socket title refproc dir commandList = do
   GTK.widgetHide buttons
   runC refproc socket title dir commandList
@@ -398,14 +432,14 @@ press buttons socket title refproc dir commandList = do
 -- detect the program creating its main window
 -- delay in order to give it time to set itself up
 -- send too quickly and the event queue locks up
-plug :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO ()
+plug :: GTK.Label -> GTK.Socket -> [String] -> IO ()
 plug tabLabel socket sendList = do
-  _h <- GTK.timeoutAdd (delayedSend tabLabel socket sendList) 1000
+  _h <- GLIB.timeoutAdd GLIB.PRIORITY_HIGH 1000 (delayedSend tabLabel socket sendList)
   return ()
 
 
 -- routine to send the text lines
-delayedSend :: Maybe GTK.Widget -> GTK.Socket -> [String] -> IO Bool
+delayedSend :: GTK.Label -> GTK.Socket -> [String] -> IO Bool
 delayedSend tabLabel socket sendList = do
   mapM_ (SC.sendLine socket) sendList
   setTabRunning tabLabel
@@ -413,13 +447,14 @@ delayedSend tabLabel socket sendList = do
 
 
 -- dialog to decide whether to restart the command
-unplug :: GTK.Table -> Maybe GTK.Widget -> GTK.Socket ->  PR.ProcRef -> IO Bool
+unplug :: GTK.Grid -> GTK.Label -> GTK.Socket ->  PR.ProcRef -> IO Bool
 unplug otherButtons tabLabel socket refproc = do
   GTK.widgetHide socket
 
   PR.shutdown refproc
 
-  GTK.widgetShowAll otherButtons
+  --GTK.widgetShowAll otherButtons
+  GTK.widgetShow otherButtons
 
   setTabStopped tabLabel
 
@@ -427,27 +462,26 @@ unplug otherButtons tabLabel socket refproc = do
 
 
 -- so CSS can set the text colour of a tab label
-setTabRunning :: Maybe GTK.Widget -> IO ()
-setTabRunning (Just tabLabel) = do
+setTabRunning :: GTK.Label -> IO ()
+setTabRunning tabLabel = do
   ctxTab <- GTK.widgetGetStyleContext tabLabel
   CTX.styleContextAddClass ctxTab "running"
-setTabRunning _ = return ()
 
-setTabStopped :: Maybe GTK.Widget -> IO ()
-setTabStopped (Just tabLabel) = do
+setTabStopped :: GTK.Label -> IO ()
+setTabStopped tabLabel = do
   ctxTab <- GTK.widgetGetStyleContext tabLabel
   CTX.styleContextRemoveClass ctxTab "running"
-setTabStopped _ = return ()
 
 
 -- change the main title to be the tab name
-pageChange :: GTK.Window -> GTK.Notebook -> GTK.Table -> String -> String -> Int -> IO ()
-pageChange window notebook table configFileName cssFileName page = do
+pageChange :: GTK.Window -> GTK.Notebook -> GTK.Grid -> String -> String -> GTK.Widget -> Word32 -> IO ()
+pageChange window notebook table configFileName cssFileName w pageW = do
+  let page = fromInteger (toInteger pageW) :: Int32
   when (page == 0) $ createButtons configFileName cssFileName table notebook
   changeTitle window notebook page
 
 
-changeTitle :: GTK.Window -> GTK.Notebook -> Int -> IO ()
+changeTitle :: GTK.Window -> GTK.Notebook -> Int32 -> IO ()
 changeTitle window notebook page = do
   vBox <- GTK.notebookGetNthPage notebook page
   case vBox of
@@ -455,7 +489,8 @@ changeTitle window notebook page = do
 
     Just thePage -> do
               text <- GTK.notebookGetTabLabelText notebook thePage
+              let sep = " - " :: T.Text
               let title = case text of
-                            Nothing -> initialTitle ++ " - " ++ (show page)
-                            Just s  -> initialTitle ++ " - " ++ s
-              GTK.set window [GTK.windowTitle GTK.:= title]
+                            Nothing -> initialTitle <> sep <> (T.pack $ show page)
+                            Just s  -> initialTitle <> sep <> s
+              GTK.setWindowTitle window title
