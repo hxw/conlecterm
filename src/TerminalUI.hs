@@ -9,8 +9,9 @@ module TerminalUI(run
 import Data.Foldable( foldlM )
 import Data.List( find )
 import qualified Data.Text as T
-import Control.Monad (when)
+import Control.Monad ( when, void )
 import Control.Monad.Trans( liftIO )
+import qualified System.Environment as Env
 
 import qualified GI.Gtk as GTK
 import qualified GI.Gdk as GDK
@@ -19,7 +20,6 @@ import qualified GI.Gdk.Objects.Screen as Screen
 import qualified GI.Gtk.Objects.StyleContext as CTX
 import qualified GI.Gtk.Objects.CssProvider as CSS
 import Data.GI.Base.ShortPrelude
-
 
 import qualified SessionParser as SP
 import qualified ConfigurationParser as CP
@@ -81,7 +81,11 @@ run configFileName cssFileName sessionFileName verbose = do
 run' :: String -> String -> String -> (String, SP.Orientation, [CP.PaneInfo], CP.Hashes) -> Bool -> IO ()
 run' configFileName cssFileName sessionFileName (sessionName, orient, tabList, _h) verbose = do
 
-  GTK.init Nothing
+  -- need prog name and args to init Gtk properly
+  -- so that the class name will be set to prog name
+  prog <- Env.getProgName
+  args <- Env.getArgs
+  void . GTK.init . Just . map T.pack $ prog : args
 
   setupCSS $ T.pack cssFileName
 
