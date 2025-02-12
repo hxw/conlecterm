@@ -272,16 +272,39 @@ checkExit window sessionName sessionFileName orient notebook = do
 -- dialog warning about acive tabs
 exitNotice :: Int -> IO ()
 exitNotice active = do
-  -- (Just window) [GTK.DialogFlagsDestroyWithParent] GTK.MessageTypeWarning GTK.ButtonsTypeOk "Some tabs are still active"
-  dialog <- GTK.dialogNew
   let verb = if active == 1 then "is" else "are"
-  let message = "<span foreground=\"red\" size=\"xx-large\">There " ++ verb ++ " " ++ (show active) ++ " tabs are still active</span>"
+  let noun = if active == 1 then "tab" else "tabs"
+  let message = "<span foreground=\"red\" background=\"white\" size=\"xx-large\">There " ++
+                verb ++ " " ++ (show active) ++ " " ++ noun ++ " still active</span>"
+  let role = "conlecterm-warning" -- for window manager
+
+  dialog <- GTK.dialogNew
+  GTK.windowSetRole dialog role
+  GTK.windowSetModal dialog True
+  GTK.windowSetGravity dialog GDK.GravityCenter
+
+  display <- GTK.widgetGetDisplay dialog
+  w <- GTK.toWindow dialog
+  m <- GDK.displayGetMonitorAtPoint display 0 0
+  r <- GDK.monitorGetGeometry m
+  w <- GDK.getRectangleWidth r
+  h <- GDK.getRectangleHeight r
+  GTK.windowMove dialog (w `div` 2) (h `div` 2)
+
+
   area <- GTK.dialogGetContentArea dialog
   label <- GTK.labelNew $ Just ""
   GTK.labelSetMarkup label $ T.pack message
+  GTK.widgetSetVexpand label True
+  GTK.widgetSetHexpand label True
+  GTK.widgetSetMarginStart label 50
+  GTK.widgetSetMarginEnd label 50
+  GTK.widgetSetMarginTop label 50
+  GTK.widgetSetMarginBottom label 50
   GTK.widgetShow label
   GTK.containerAdd area label
   GTK.dialogAddButton dialog "OK" 42
+  GTK.widgetGrabAdd dialog
   response <- GTK.dialogRun dialog
   GTK.widgetDestroy dialog
   return ()
