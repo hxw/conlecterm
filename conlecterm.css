@@ -166,16 +166,16 @@
 
 #conlecterm stack .remove_tab_button {
   background-color: darkred;
-  font-size: 24pt;
+  font-size: 20pt;
   font-weight: bold;
-  color: gray30;
+  color: red;
   border-width: 0px;
   border-color: black;
 }
 
 #conlecterm button:hover .remove_tab_button {
-  color: gray60;
-  background-color: red3;
+  color: red;
+  background-color: tomato;
   border-color: black;
 }
 

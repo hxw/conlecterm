@@ -2,8 +2,8 @@
 
 .PHONY: all
 all:
-	cabal new-update
-	cabal new-build
+	cabal update
+	cabal build
 
 INSTALL_DIR ?= ${HOME}/.local/share
 BIN_DIR ?= ${HOME}/.cabal/bin
@@ -13,12 +13,12 @@ THEMES += hicolor
 
 .PHONY: run
 run:
-	cabal new-run
+	cabal run
 
 .PHONY: install
 install:
 	rm -f "${BIN_DIR}/conlecterm"
-	cabal new-install conlecterm
+	cabal install conlecterm
 	install -d "${INSTALL_DIR}/applications"
 	install conlecterm.desktop ${INSTALL_DIR}/applications
 .for t in ${THEMES}
@@ -35,10 +35,10 @@ clean:
 tuple:
 	cabal2tuple dist-newstyle/cache/plan.json
 
-.PHONY: emacs-1
-emacs-1:
-	cabal new-run conlecterm -- -c . -v
+.PHONY: test-1
+test-1:
+	cabal run conlecterm -- -c . -v
 
-.PHONY: emacs-2
-emacs-2:
-	cabal new-run conlecterm -- -c .
+.PHONY: test-2
+test-2:
+	cabal run conlecterm -- -c .

@@ -1,4 +1,4 @@
--- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2025, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
 module ProcessRunner where
@@ -54,7 +54,7 @@ run procref dir (prog:args) = do
               _ <- hPutStrLn stderr ("ProcessRunner.run: directory disappeared: " ++ dir)
               return Nothing
 
--- ait for child termination
+-- wait for child termination
 shutdown :: ProcRef -> IO ()
 shutdown refproc = do
   f <- V.isEmptyMVar refproc
@@ -66,6 +66,7 @@ shutdown refproc = do
       _exitStatus <- waitForProcess aProc
       return ()
 
+-- counter to keep track of the number of active processes
 
 counter :: IORef Int
 counter = unsafePerformIO $ newIORef 0

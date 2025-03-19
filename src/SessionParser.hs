@@ -1,4 +1,4 @@
--- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2025, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
@@ -6,7 +6,6 @@
 module SessionParser where
 
 import Data.Aeson
---import Data.Aeson.Encode.Pretty (encodePretty)
 
 import Data.Text
 import Data.String

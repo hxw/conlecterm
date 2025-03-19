@@ -1,4 +1,4 @@
--- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2025, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
 module SendControl where
@@ -6,12 +6,8 @@ module SendControl where
 import qualified Graphics.X11 as X
 import qualified Graphics.X11.Xlib.Extras as XE
 
-import qualified GI.Gtk as GTK
-import qualified GI.Gdk as GDK
---import qualified GI.Gdk.Objects.Screen as Screen
--- import qualified GI.Gtk.General.StyleContext as CTX
--- import qualified GI.Gtk.General.CssProvider as CSS
--- import Data.GI.Base
+import qualified GI.Gtk as Gtk
+import qualified GI.Gdk as Gdk
 import Data.GI.Base.ShortPrelude
 
 import Control.Exception( bracket )
@@ -31,19 +27,9 @@ sendDelayMicroseconds = 5000
 -- needed to send a key event
 type NativeAccess = (X.Display, X.Window, X.Window)
 
-
--- -- send a list of keys
--- -- ***TODO*** allow shift, control
--- -- ***UNTESTED***
--- send :: GTK.Socket -> [String] -> IO ()
--- send socket keyList = withNative socket $ \native -> do
---   mapM_ (\k -> sendOneKey native X.noModMask (symbol k)) keyList
---   where
---     symbol = X.stringToKeysym
-
 -- -- send a single of keysym
---sendKey :: GTK.Socket -> [GDK.ModifierType] -> GTK.KeyVal -> IO ()
-sendKey :: GTK.Socket -> [GDK.ModifierType] -> Word32 -> IO ()
+--sendKey :: Gtk.Socket -> [Gdk.ModifierType] -> Gtk.KeyVal -> IO ()
+sendKey :: Gtk.Socket -> [Gdk.ModifierType] -> Word32 -> IO ()
 sendKey socket mods key = withNative socket $ \native -> do
   let k1 = (fromIntegral key) :: Word
   let k = (fromIntegral k1) :: X.KeySym
@@ -54,7 +40,7 @@ sendKey socket mods key = withNative socket $ \native -> do
 
 -- -- send a line ended by newline
 -- -- each character of the string is treated as a separate keysym
-sendLine :: GTK.Socket -> String -> IO ()
+sendLine :: Gtk.Socket -> String -> IO ()
 sendLine socket str = withNative socket $ \native -> do
   mapM_ (\c -> do
             let (shift, symbol) = sym c
@@ -65,14 +51,14 @@ sendLine socket str = withNative socket $ \native -> do
 
 -- bracket all the messy details of accessing Xlib
 -- opens and closes the display, gets root window
--- finds the X window ID corresponding to the "plug" in the GTK socket
-withNative :: GTK.Socket -> (NativeAccess -> IO ()) -> IO ()
+-- finds the X window ID corresponding to the "plug" in the Gtk socket
+withNative :: Gtk.Socket -> (NativeAccess -> IO ()) -> IO ()
 withNative socket run =
   bracket setup final run
   where
     setup :: IO NativeAccess
     setup = do
-      socketId <- GTK.socketGetId socket
+      socketId <- Gtk.socketGetId socket
       display <- X.openDisplay ""
       --let root = X.defaultRootWindow display
       let nativeSkt = fromInteger (toInteger socketId) :: X.Window
@@ -216,38 +202,40 @@ sym _ = (X.noModMask, X.stringToKeysym "space")
 
 
 -- convert a modifier to a mask
-modToMask :: GDK.ModifierType -> X.KeyMask
-modToMask GDK.ModifierTypeShiftMask = X.shiftMask
-modToMask GDK.ModifierTypeLockMask = X.lockMask
-modToMask GDK.ModifierTypeControlMask = X.controlMask
-modToMask GDK.ModifierTypeMod1Mask = X.mod1Mask
-modToMask GDK.ModifierTypeMod2Mask = X.mod2Mask
-modToMask GDK.ModifierTypeMod3Mask = X.mod3Mask
-modToMask GDK.ModifierTypeMod4Mask = X.mod4Mask
-modToMask GDK.ModifierTypeMod5Mask = X.mod5Mask
--- --modToMask GTK.Button1 = 0
--- --modToMask GTK.Button2 = 0
--- --modToMask GTK.Button3 = 0
--- --modToMask GTK.Button4 = 0
--- --modToMask GTK.Button5 = 0
--- --modToMask GTK.MODIFIER_RESERVED_13_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_14_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_15_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_16_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_17_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_18_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_19_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_20_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_21_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_22_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_23_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_24_MASK = 0
--- --modToMask GTK.MODIFIER_RESERVED_25_MASK = 0
--- --modToMask GTK.Super = 0
--- --modToMask GTK.Hyper = 0
--- --modToMask GTK.Meta = 0
--- --modToMask GTK.MODIFIER_RESERVED_29_MASK = 0
--- --modToMask GTK.Release = 0
--- --modToMask GTK.ModifierMask = 0
+modToMask :: Gdk.ModifierType -> X.KeyMask
+modToMask Gdk.ModifierTypeShiftMask = X.shiftMask
+modToMask Gdk.ModifierTypeLockMask = X.lockMask
+modToMask Gdk.ModifierTypeControlMask = X.controlMask
+--modToMask Gdk.ModifierTypeMetaMask = X.mod1Mask
+--modToMask Gdk.ModifierTypeAltMask = X.mod2Mask
+modToMask Gdk.ModifierTypeMod1Mask = X.mod1Mask
+modToMask Gdk.ModifierTypeMod2Mask = X.mod2Mask
+modToMask Gdk.ModifierTypeMod3Mask = X.mod3Mask
+modToMask Gdk.ModifierTypeMod4Mask = X.mod4Mask
+modToMask Gdk.ModifierTypeMod5Mask = X.mod5Mask
+-- --modToMask Gtk.Button1 = 0
+-- --modToMask Gtk.Button2 = 0
+-- --modToMask Gtk.Button3 = 0
+-- --modToMask Gtk.Button4 = 0
+-- --modToMask Gtk.Button5 = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_13_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_14_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_15_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_16_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_17_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_18_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_19_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_20_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_21_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_22_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_23_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_24_MASK = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_25_MASK = 0
+-- --modToMask Gtk.Super = 0
+-- --modToMask Gtk.Hyper = 0
+-- --modToMask Gtk.Meta = 0
+-- --modToMask Gtk.MODIFIER_RESERVED_29_MASK = 0
+-- --modToMask Gtk.Release = 0
+-- --modToMask Gtk.ModifierMask = 0
 -- default
 modToMask _ = X.noModMask

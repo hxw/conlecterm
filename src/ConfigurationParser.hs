@@ -1,4 +1,4 @@
--- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2025, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
@@ -163,7 +163,7 @@ dupDef :: SourcePos -> Maybe a -> String ->  MyParser ()
 dupDef pos item name =
   if isNothing item
     then return ()
-    else posWarning pos $ "duplicate definition of: " ++ name
+    else posWarning pos $ "duplicate definition of symbol: " ++ name
 
 notDef :: SourcePos -> Maybe a -> String ->  MyParser ()
 notDef pos item name =
@@ -442,19 +442,12 @@ paneItem =
 -- parser setup and run
 -- --------------------
 
---runParserT :: Stream s m t => ParsecT s u m a -> u -> SourceName -> s -> m (Either ParseError a)
---runParser :: Stream s Identity t => Parsec s u a -> u -> SourceName -> s -> Either ParseError a
-
---runParser :: GenParser tok st a -> st -> SourceName -> [tok] -> Either ParseError a
-
---run :: Show a => MyParser a -> String -> IO ()
 run :: MyParser Bool -> Hashes -> String -> String -> IO (Maybe Hashes)
 run p (hashCmd, hashPane) fileName input = do
 
   let initialState = initUserState hashCmd hashPane
 
   result <- N.runParserT p initialState fileName input
-  --case (N.runParserT p initialState fileName input) of
   case result of
     Left err -> do
       putStr "parse error at "

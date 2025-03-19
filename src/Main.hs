@@ -1,5 +1,5 @@
 
--- Copyright (c) 2012-2019, Christopher Hall <hsw@ms2.hinet.net>
+-- Copyright (c) 2012-2025, Christopher Hall <hsw@ms2.hinet.net>
 -- Licence BSD2 see LICENSE file
 
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
@@ -51,7 +51,7 @@ main = do
     then hPutStrLn stderr "# Verbose mode on"
     else return ()
   if length arguments > 1
-    then usage ["too many arguments\n"]
+    then usage ["extraneous extra arguments\n"]
     else return ()
 
   let startSession = if length arguments == 0 then defaultSessionFile else (arguments !! 0)
@@ -61,11 +61,11 @@ main = do
   let sessionFile = combine configDirectory $ startSession
   if verbose
     then do
-      hPutStrLn stderr $ "requested session: " ++ (show session)
-      hPutStrLn stderr $ "start session:     " ++ (show startSession)
-      hPutStrLn stderr $ "config file:       " ++ configFile
-      hPutStrLn stderr $ "CSS file:          " ++ styleFile
-      hPutStrLn stderr $ "session file:      " ++ sessionFile
+      hPutStrLn stderr $ "requested session:  " ++ (show session)
+      hPutStrLn stderr $ "start session:      " ++ (show startSession)
+      hPutStrLn stderr $ "configuration file: " ++ configFile
+      hPutStrLn stderr $ "CSS file:           " ++ styleFile
+      hPutStrLn stderr $ "session file:       " ++ sessionFile
     else return ()
 
   case configDirectory of
@@ -90,7 +90,7 @@ main = do
   message <- TU.run configFile styleFile sessionFile verbose
   case message of
     Nothing -> exitSuccess
-    Just errorMessage -> usage ["error formUI: ", errorMessage]
+    Just errorMessage -> usage ["error from Terminal Interface: ", errorMessage]
 
 
 -- determine configuration directory
@@ -174,13 +174,6 @@ setConfig arg opt = return opt { optConfig = arg }
 
 setSession :: Monad m => String -> Options -> m Options
 setSession arg opt = return opt { optSession = arg }
-
---readInput arg opt = return opt { optInput = readFile arg }
---writeOutput arg opt = return opt { optOutput = writeFile arg }
---writeOutput arg opt = return opt { optOutput = withFile arg WriteMode }
---writeOutput arg opt = do
---  handle <- openFile arg WriteMode
---  return opt { optOutput = handle }
 
 
 -- usage messages
